@@ -1,0 +1,7 @@
+{
+  "name": "WattWalker",
+  "description": "Upload bar graphs to instantly extract data points into JSON and visualize them.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
