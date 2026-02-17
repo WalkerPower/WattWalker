@@ -1,0 +1,34 @@
+steps:
+  # Build the container image with the API key as a build argument
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--build-arg'
+      - 'GEMINI_API_KEY=AIzaSyC5sVcbJAljrXnw1MdS-K7-Gs-vPJft1ck'
+      - '-t'
+      - 'us-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/wattwalker'
+      - '.'
+  
+  # Push the container image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'us-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/wattwalker'
+  
+  # Deploy container image to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'wattwalker'
+      - '--image'
+      - 'us-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/wattwalker'
+      - '--region'
+      - 'us-west1'
+      - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'API_KEY=AIzaSyC5sVcbJAljrXnw1MdS-K7-Gs-vPJft1ck'
+
+images:
+  - 'us-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/wattwalker'

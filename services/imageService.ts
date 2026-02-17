@@ -1,6 +1,6 @@
 // Configuration for the conversion endpoint
-// In development, this points to localhost. In production, this should be your Cloud Run URL.
-const CONVERT_ENDPOINT = 'http://localhost:8080/convert';
+// In development, this points to localhost via Vite proxy. In production, this uses the relative path.
+const CONVERT_ENDPOINT = '/convert';
 
 /**
  * Checks if a file is likely a HEIC/HEIF image.

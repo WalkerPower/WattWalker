@@ -21,13 +21,15 @@ export interface AnalysisResponse {
   billUsage?: number;
   data: EnergyData[];
   metadata: GraphMetadata;
+  error?: string;
+  details?: string;
 }
 
 export interface CalculatedEnergyData extends EnergyData {
-  adjustedDailyUsage: number; 
+  adjustedDailyUsage: number;
   daysInMonth: number;
   monthlyTotal: number;
-  estimatedCost: number; 
+  estimatedCost: number;
 }
 
 export interface CalculationSummary {
