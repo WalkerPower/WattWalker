@@ -8,7 +8,7 @@ workflows:
     environment:
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: com.walkerpower.wattwalker
+        bundle_identifier: com.njsolar.wattwalker
       vars:
         XCODE_PROJECT: App.xcodeproj
         XCODE_SCHEME: App

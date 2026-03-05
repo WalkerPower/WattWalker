@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>WattWalker</string>
+	<string>NJ Solar WattWalker</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -47,5 +47,11 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>WattWalker uses the camera to capture photos of your energy bill graphs for analysis and data extraction.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>WattWalker needs access to your photo library to select images of energy bill graphs for analysis and data extraction.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.walkerpower.wattwalker',
-  appName: 'WattWalker',
+  appId: 'com.njsolar.wattwalker',
+  appName: 'NJ Solar WattWalker',
   webDir: 'dist'
 };
 

@@ -9,6 +9,7 @@ lerna-debug.log*
 
 node_modules
 dist
+ios/App/build
 dist-ssr
 *.local
 
