@@ -12,7 +12,7 @@ workflows:
       vars:
         XCODE_PROJECT: App.xcodeproj
         XCODE_SCHEME: App
-        APP_STORE_APP_ID: "0"  # Replace with your App ID from App Store Connect > App > General > App Information
+        APP_STORE_APP_ID: "6AR6G3NBJA"  # Replace with your App ID from App Store Connect > App > General > App Information
         node: v20
         xcode: latest
     triggering:
@@ -34,8 +34,14 @@ workflows:
       - name: Increment build number
         script: |
           cd $CM_BUILD_DIR/ios/App
-          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APP_ID" 2>/dev/null || echo "0")
-          agvtool new-version -all $(($LATEST_BUILD_NUMBER + 1))
+          if [ "$APP_STORE_APP_ID" != "0" ] && [ -n "$APP_STORE_APP_ID" ]; then
+            LATEST_BUILD_NUMBER=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APP_ID" 2>/dev/null || echo "0")
+          else
+            LATEST_BUILD_NUMBER=0
+          fi
+          NEW_BUILD=$((LATEST_BUILD_NUMBER + 1))
+          agvtool new-version -all $NEW_BUILD
+          echo "Set build number to $NEW_BUILD"
       - name: Build IPA
         script: |
           cd $CM_BUILD_DIR/ios/App
