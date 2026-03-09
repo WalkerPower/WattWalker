@@ -1,0 +1,33 @@
+{
+  "name": "wattwalker",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run sync-icon && vite build",
+    "preview": "vite preview",
+    "cap:sync": "cap sync ios",
+    "sync-icon": "node scripts/sync-app-icon.cjs"
+  },
+  "dependencies": {
+    "@capacitor/cli": "^8.2.0",
+    "@capacitor/ios": "^8.2.0",
+    "@google/genai": "^1.40.0",
+    "firebase": "^12.9.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "recharts": "^3.7.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@tailwindcss/postcss": "^4.2.1",
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "autoprefixer": "^10.4.27",
+    "postcss": "^8.5.8",
+    "tailwindcss": "^3.4.19",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}
