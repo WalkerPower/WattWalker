@@ -37,9 +37,9 @@ workflows:
             --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
             --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
             --private-key "$APP_STORE_CONNECT_PRIVATE_KEY" \
-            --bundle-id "com.njsolar.wattwalker" \
             --type IOS_APP_STORE \
-            --create
+            --create \
+            "com.njsolar.wattwalker"
       - name: Set up code signing
         script: xcode-project use-profiles
       - name: Increment build number
