@@ -6,9 +6,6 @@ workflows:
     environment:
       groups:
         - appstore_credentials
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.njsolar.wattwalker
       vars:
         # Cloud Run backend URL - REQUIRED for bill analysis. Get from Cloud Run console after deploy.
         VITE_API_BASE_URL: $VITE_API_BASE_URL
@@ -34,6 +31,15 @@ workflows:
         script: npm run build
       - name: Sync to iOS
         script: npx cap sync ios
+      - name: Fetch signing files from App Store Connect
+        script: |
+          app-store-connect fetch-signing-files \
+            --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
+            --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            --private-key "$APP_STORE_CONNECT_PRIVATE_KEY" \
+            --bundle-id "com.njsolar.wattwalker" \
+            --type IOS_APP_STORE \
+            --create
       - name: Set up code signing
         script: xcode-project use-profiles
       - name: Increment build number
@@ -56,7 +62,7 @@ workflows:
       - ios/App/build/ios/ipa/*.ipa
     publishing:
       app_store_connect:
-        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        auth_key: $APP_STORE_CONNECT_PRIVATE_KEY
         key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
         issuer_id: $APP_STORE_CONNECT_ISSUER_ID
         submit_to_testflight: true
