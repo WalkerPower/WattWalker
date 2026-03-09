@@ -39,6 +39,7 @@ workflows:
             --private-key "$APP_STORE_CONNECT_PRIVATE_KEY" \
             --type IOS_APP_STORE \
             --create \
+            --delete-stale-profiles \
             "com.njsolar.wattwalker"
       - name: Set up code signing
         script: xcode-project use-profiles
