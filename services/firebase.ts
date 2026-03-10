@@ -3,12 +3,13 @@ import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBNdIKHlKVHjqGo5uD1frymlb1mugeBfXw",
-  authDomain: "wattwalkerapp.firebaseapp.com",
-  projectId: "wattwalkerapp",
-  storageBucket: "wattwalkerapp.firebasestorage.app",
-  messagingSenderId: "57159750417",
-  appId: "1:57159750417:web:eb1593d57cad5ab7d2f2b0"
+  apiKey: "AIzaSyAm3mmfBPSDT12FvL3C8ghhO-eZKXhy9s",
+  authDomain: "gen-lang-client-0730106196.firebaseapp.com",
+  projectId: "gen-lang-client-0730106196",
+  storageBucket: "gen-lang-client-0730106196.firebasestorage.app",
+  messagingSenderId: "974317429927",
+  appId: "1:974317429927:web:979646441f42e792dc2782",
+  measurementId: "G-K502FQE110"
 };
 
 const app = initializeApp(firebaseConfig);
