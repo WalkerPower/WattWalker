@@ -1,6 +1,7 @@
 // Configuration for the conversion endpoint
-// In development, this points to localhost. In production, this should be your Cloud Run URL.
-const CONVERT_ENDPOINT = 'http://localhost:8080/convert';
+// Uses VITE_API_BASE_URL in production (Cloud Run), falls back to localhost for development
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+const CONVERT_ENDPOINT = `${API_BASE}/convert`;
 
 /**
  * Checks if a file is likely a HEIC/HEIF image.
