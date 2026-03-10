@@ -39,11 +39,8 @@ workflows:
       - name: Increment build number
         script: |
           cd $CM_BUILD_DIR/ios/App
-          if [ -n "$BUILD_NUMBER" ] && [ "$BUILD_NUMBER" -gt 1 ]; then
-            NEW_BUILD=$BUILD_NUMBER
-          else
-            NEW_BUILD=2
-          fi
+          # Use Codemagic's build number + offset to ensure uniqueness
+          NEW_BUILD=$((${BUILD_NUMBER:-1} + 100))
           agvtool new-version -all $NEW_BUILD
           echo "Set build number to $NEW_BUILD"
       - name: Build IPA
