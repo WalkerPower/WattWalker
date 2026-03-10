@@ -6,17 +6,16 @@ workflows:
     environment:
       groups:
         - appstore_credentials
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.njsolar.wattwalker
       vars:
-        # Cloud Run backend URL - REQUIRED for bill analysis. Get from Cloud Run console after deploy.
         VITE_API_BASE_URL: $VITE_API_BASE_URL
         XCODE_PROJECT: App.xcodeproj
         XCODE_SCHEME: App
         APP_STORE_APP_ID: "6AR6G3NBJA"
         node: v22
         xcode: latest
-        # REQUIRED: Add VITE_API_BASE_URL in Codemagic UI (Environment variables)
-        # Set to your Cloud Run URL, e.g. https://wattwalker-njsolar-xxxxx-uc.a.run.app
-        # Get it from: Google Cloud Console > Cloud Run > wattwalker-njsolar > URL
     triggering:
       events:
         - push
@@ -31,20 +30,11 @@ workflows:
         script: npm run build
       - name: Sync to iOS
         script: npx cap sync ios
-      - name: Initialize Keychain
-        script: keychain initialize
-      - name: Fetch signing files from App Store Connect
+      - name: Set up keychain and code signing
         script: |
-          app-store-connect fetch-signing-files \
-            --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
-            --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-            --private-key "$APP_STORE_CONNECT_PRIVATE_KEY" \
-            --type IOS_APP_STORE \
-            --create \
-            --delete-stale-profiles \
-            "com.njsolar.wattwalker"
-      - name: Set up code signing
-        script: xcode-project use-profiles
+          keychain initialize
+          keychain add-certificates
+          xcode-project use-profiles
       - name: Increment build number
         script: |
           cd $CM_BUILD_DIR/ios/App
