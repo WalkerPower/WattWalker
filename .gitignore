@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Sensitive keys - NEVER commit these
+private_key.txt
+*.p8
+*.p12
+*.mobileprovision
+*.cer
