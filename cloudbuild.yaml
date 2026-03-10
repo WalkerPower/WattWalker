@@ -1,10 +1,10 @@
 steps:
-  # Build the container image with the API key as a build argument
+  # Build the container image using substitution variable for API key
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
       - '--build-arg'
-      - 'GEMINI_API_KEY=AIzaSyAxgfHJcrtGPAFW0mvqmhfsCYlAZP4NHJ8'
+      - 'GEMINI_API_KEY=${_GEMINI_API_KEY}'
       - '-t'
       - 'us-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/wattwalker'
       - '.'
@@ -27,8 +27,10 @@ steps:
       - '--region'
       - 'us-west1'
       - '--allow-unauthenticated'
-      - '--set-env-vars'
-      - 'API_KEY=AIzaSyC5sVcbJAljrXnw1MdS-K7-Gs-vPJft1ck'
+
+# Substitution variables - set these in Cloud Build Trigger settings
+substitutions:
+  _GEMINI_API_KEY: ''
 
 images:
   - 'us-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/wattwalker'
