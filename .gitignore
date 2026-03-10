@@ -29,3 +29,6 @@ private_key.txt
 *.p12
 *.mobileprovision
 *.cer
+.env
+.env.local
+.env.*.local
