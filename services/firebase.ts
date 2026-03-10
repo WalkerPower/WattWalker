@@ -3,7 +3,7 @@ import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAm3mmfBPSDT12FvL3C8ghhO-eZKXhy9s",
+  apiKey: "AIzaSyAm3mmfBPSDT12FvL3C8ghhO-eZKGxhy9s",
   authDomain: "gen-lang-client-0730106196.firebaseapp.com",
   projectId: "gen-lang-client-0730106196",
   storageBucket: "gen-lang-client-0730106196.firebasestorage.app",
