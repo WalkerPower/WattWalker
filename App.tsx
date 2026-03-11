@@ -4,6 +4,7 @@ import DataVisualizer from './components/DataVisualizer';
 import LoadingState from './components/LoadingState';
 import Auth from './components/Auth';
 import PricingModal from './components/PricingModal';
+import SplashScreen from './components/SplashScreen';
 import { analyzeGraphImage } from './services/geminiService';
 import { isHeic, convertHeicToJpg } from './services/imageService';
 import { auth, db } from './services/firebase';
@@ -76,6 +77,9 @@ const App: React.FC = () => {
     // Professional View Records Modal
     const [showRecordsModal, setShowRecordsModal] = useState(false);
 
+    // Splash Screen State - shows once per session after login
+    const [showSplash, setShowSplash] = useState(false);
+
     // Force document title update
     useEffect(() => {
         document.title = "WattWalker";
@@ -104,6 +108,13 @@ const App: React.FC = () => {
 
                 // Allow access if verified OR if they are a VIP
                 if (currentUser.emailVerified || isVip) {
+                    // Show splash screen once per session after login
+                    const hasSeenSplash = sessionStorage.getItem('wattwalker_splash_shown');
+                    if (!hasSeenSplash) {
+                        setShowSplash(true);
+                        sessionStorage.setItem('wattwalker_splash_shown', 'true');
+                    }
+                    
                     setUser(currentUser);
 
                     if (forcedRole) {
@@ -538,6 +549,11 @@ const App: React.FC = () => {
 
     return (
         <div className="min-h-screen flex flex-col font-sans" style={{ backgroundColor: '#a2dffc' }}>
+
+            {/* Splash Screen - plays once after login */}
+            {showSplash && (
+                <SplashScreen onComplete={() => setShowSplash(false)} duration={3000} />
+            )}
 
             {/* Pricing Modal */}
             {showPricingModal && user && (
