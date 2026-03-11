@@ -613,20 +613,23 @@ const App: React.FC = () => {
                                 WattWalker
                             </h1>
                             {trialDaysLeft !== null && trialDaysLeft > 0 && (
-                                <span className="text-[10px] text-orange-600 font-bold bg-orange-100 px-1 rounded inline-block w-fit">
-                                    Trial: {trialDaysLeft} days left
-                                </span>
+                                <button 
+                                    onClick={() => setShowPricingModal(true)}
+                                    className="text-[10px] text-orange-600 font-bold bg-orange-100 hover:bg-orange-200 px-2 py-0.5 rounded inline-block w-fit cursor-pointer transition-colors"
+                                >
+                                    Trial: {trialDaysLeft} days left - View Plans
+                                </button>
                             )}
                         </div>
                     </div>
 
                     <div className="flex items-center gap-2">
-                        {userRole !== 'premium' && (
+                        {(userRole !== 'premium' || (trialDaysLeft !== null && trialDaysLeft > 0)) && (
                             <button
                                 onClick={() => setShowPricingModal(true)}
                                 className="hidden sm:block text-xs sm:text-sm px-3 py-2 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-bold shadow-sm transition-all"
                             >
-                                Upgrade
+                                {trialDaysLeft !== null && trialDaysLeft > 0 ? 'View Plans' : 'Upgrade'}
                             </button>
                         )}
                         {status === AnalysisStatus.SUCCESS && (
