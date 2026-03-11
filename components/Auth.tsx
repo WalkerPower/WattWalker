@@ -51,9 +51,13 @@ const Auth: React.FC = () => {
             role: null, // No paid role yet
             status: 'trial'
           });
+          
+          // Create customer document for Stripe extension
+          await setDoc(doc(db, 'customers', user.uid), {
+            email: user.email
+          });
         } catch (firestoreErr) {
           console.error("Error creating user document:", firestoreErr);
-          // Continue even if firestore fails, though trial logic might be buggy without it
         }
 
         // Send verification email
@@ -122,12 +126,15 @@ const Auth: React.FC = () => {
     setError(null);
     try {
       const result = await signInWithPopup(auth, googleProvider);
-      // Check if new user to set trial timestamp
-      // Note: Using getAdditionalUserInfo or checking firestore existence would be safer, 
-      // but for simplicity App.tsx handles missing timestamps by defaulting to 'now' if needed
-      // or we can force a setDoc with merge: true
+      // Create/update user document with trial info
       await setDoc(doc(db, 'users', result.user.uid), {
         email: result.user.email,
+        createdAt: Date.now(),
+      }, { merge: true });
+      
+      // Create customer document for Stripe extension
+      await setDoc(doc(db, 'customers', result.user.uid), {
+        email: result.user.email
       }, { merge: true });
 
     } catch (err: any) {
