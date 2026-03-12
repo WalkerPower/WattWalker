@@ -121,6 +121,7 @@ const App: React.FC = () => {
                         setUserRole(forcedRole);
                         setIsTrialExpired(false); // VIPs never expire
                         setShowPricingModal(false);
+                        sessionStorage.setItem('wattwalker_pricing_shown', 'true'); // Prevent auto-show for VIPs
                     } else {
                         // Listen to User Document for Role changes and Trial Logic
                         const userDocRef = doc(db, 'users', currentUser.uid);
