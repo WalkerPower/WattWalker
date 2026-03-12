@@ -86,19 +86,19 @@ const PricingModal: React.FC<PricingModalProps> = ({ userId, onClose }) => {
               <ul className="space-y-2 mb-8 flex-1">
                 <li className="flex items-start gap-2 text-xs text-slate-600">
                   <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                  <span>Graph Measurement Totals</span>
+                  <span>Instant electric bill evaluation</span>
                 </li>
                 <li className="flex items-start gap-2 text-xs text-slate-600">
                   <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                  <span>Utility Name & Current Cost</span>
+                  <span>Capture bill images during evaluation</span>
                 </li>
-                <li className="flex items-start gap-2 text-xs text-slate-600">
-                  <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                  <span>Monthly Usage Display</span>
-                </li>
-                 <li className="flex items-start gap-2 text-xs text-slate-400">
+                <li className="flex items-start gap-2 text-xs text-slate-400">
                   <svg className="w-4 h-4 text-slate-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                  <span>No Contact Info or Data Table</span>
+                  <span>No stored history</span>
+                </li>
+                <li className="flex items-start gap-2 text-xs text-slate-400">
+                  <svg className="w-4 h-4 text-slate-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  <span>Records cleared on new evaluation</span>
                 </li>
               </ul>
               <button
@@ -126,19 +126,23 @@ const PricingModal: React.FC<PricingModalProps> = ({ userId, onClose }) => {
               <ul className="space-y-2 mb-8 flex-1">
                 <li className="flex items-start gap-2 text-xs text-slate-600">
                   <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                  <span>Unlimited Bill Scans</span>
+                  <span>Secure Firebase database storage</span>
                 </li>
                 <li className="flex items-start gap-2 text-xs text-slate-600">
                   <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                  <span>Detailed Usage Tables</span>
+                  <span>Chronological lead history</span>
                 </li>
                 <li className="flex items-start gap-2 text-xs text-slate-600">
                   <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                  <span>View & Save Records Locally</span>
+                  <span>150-character notes per lead</span>
                 </li>
-                 <li className="flex items-start gap-2 text-xs text-slate-400">
-                  <svg className="w-4 h-4 text-slate-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                  <span>No CSV Download (View Only)</span>
+                <li className="flex items-start gap-2 text-xs text-slate-600">
+                  <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                  <span>Bill image stored with lead</span>
+                </li>
+                <li className="flex items-start gap-2 text-xs text-slate-600">
+                  <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                  <span>Tap-to-copy address</span>
                 </li>
               </ul>
               <button
@@ -168,21 +172,25 @@ const PricingModal: React.FC<PricingModalProps> = ({ userId, onClose }) => {
                 <div className="text-green-600 text-xs font-bold mt-1">5 Days Free Trial</div>
               </div>
               <ul className="space-y-2 mb-8 flex-1">
-                 <li className="flex items-start gap-2 text-xs text-slate-600">
+                <li className="flex items-start gap-2 text-xs text-slate-600">
                   <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                  <span className="font-bold text-slate-900">High-Accuracy Gemini 3 Pro</span>
+                  <span>Search leads by date or last name</span>
                 </li>
                 <li className="flex items-start gap-2 text-xs text-slate-600">
                   <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                  <span>Unlimited Bill Scans</span>
+                  <span>Calendar appointment links</span>
                 </li>
                 <li className="flex items-start gap-2 text-xs text-slate-600">
                   <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                  <span>Detailed Usage Tables</span>
+                  <span>150-character notes per lead</span>
                 </li>
                 <li className="flex items-start gap-2 text-xs text-slate-600">
                   <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                  <span>Download Standard CSV</span>
+                  <span>Downloadable lead data (CSV)</span>
+                </li>
+                <li className="flex items-start gap-2 text-xs text-slate-600">
+                  <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                  <span>All Professional features included</span>
                 </li>
               </ul>
               <button
