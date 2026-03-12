@@ -2,22 +2,22 @@
 export const DEPLOYED_URL = "https://wattwalker.njsolar.today";
 
 // Legacy constants for backward compatibility (Mapped to Premium)
-export const MONTHLY_PRICE_ID = "price_1T1DVBRTMNcgA09IcxnKX4d7";
-export const YEARLY_PRICE_ID  = "price_1T1E1mRTMNcgA09IdWo1QaDE";
+export const MONTHLY_PRICE_ID = "price_1Szn9hRTMNcgA09IeJbGq6RW";
+export const YEARLY_PRICE_ID  = "price_1Szn9jRTMNcgA09IRk01OLsH";
 
 // Comprehensive Price ID Map
 export const PRICE_IDS = {
   basic: {
-    monthly: "price_1T1DPCRTMNcgA09IP0Lpemtu",
-    yearly: "price_1T1E33RTMNcgA09IETP6kaMo"
+    monthly: "price_1Szkf0RTMNcgA09IqTJuDmT2",
+    yearly: "price_1SzklWRTMNcgA09IAmEAU0Dq"
   },
   professional: {
-    monthly: "price_1T1DRARTMNcgA09I2L8nE2mB",
-    yearly: "price_1T1E2NRTMNcgA09I0TaXKreG"
+    monthly: "price_1Szkd6RTMNcgA09Ijxm8HteT",
+    yearly: "price_1SzkkoRTMNcgA09IQFuSMTLn"
   },
   premium: {
-    monthly: "price_1T1DVBRTMNcgA09IcxnKX4d7",
-    yearly: "price_1T1E1mRTMNcgA09IdWo1QaDE"
+    monthly: "price_1Szn9hRTMNcgA09IeJbGq6RW",
+    yearly: "price_1Szn9jRTMNcgA09IRk01OLsH"
   }
 };
 

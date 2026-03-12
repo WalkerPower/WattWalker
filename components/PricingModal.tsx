@@ -76,7 +76,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ userId, onClose }) => {
                 <h3 className="text-lg font-bold text-slate-700">Basic</h3>
                 <div className="flex items-baseline gap-1 mt-2">
                    <span className="text-2xl font-extrabold text-slate-900">
-                     {billingCycle === 'monthly' ? '$4.99' : '$49.99'}
+                     {billingCycle === 'monthly' ? '$5.99' : '$59.99'}
                    </span>
                    <span className="text-slate-500 font-medium text-xs">
                      /{billingCycle === 'monthly' ? 'mo' : 'yr'}
