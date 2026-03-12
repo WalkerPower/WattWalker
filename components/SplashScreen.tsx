@@ -27,13 +27,12 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete, duration = 3000
     <div 
       className={`fixed inset-0 z-50 flex items-center justify-center bg-white transition-opacity duration-500 ${fadeOut ? 'opacity-0' : 'opacity-100'}`}
     >
-      <div className="flex flex-col items-center">
+      <div className="flex flex-col items-center justify-center w-full h-full px-8">
         <img 
           src="/splash.png" 
           alt="WattWalker" 
-          className="w-64 h-64 object-contain animate-pulse"
+          className="max-w-full max-h-[80vh] object-contain"
         />
-        <p className="mt-4 text-xl font-semibold text-gray-700">WattWalker</p>
       </div>
     </div>
   );

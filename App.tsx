@@ -552,7 +552,7 @@ const App: React.FC = () => {
 
             {/* Splash Screen - plays once after login */}
             {showSplash && (
-                <SplashScreen onComplete={() => setShowSplash(false)} duration={3000} />
+                <SplashScreen onComplete={() => setShowSplash(false)} duration={5000} />
             )}
 
             {/* Pricing Modal */}
