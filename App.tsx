@@ -552,7 +552,17 @@ const App: React.FC = () => {
 
             {/* Splash Screen - plays once after login */}
             {showSplash && (
-                <SplashScreen onComplete={() => setShowSplash(false)} duration={5000} />
+                <SplashScreen onComplete={() => {
+                    setShowSplash(false);
+                    // Show pricing modal for new users without a subscription
+                    if (!userRole || userRole === 'basic') {
+                        const hasSeenPricing = sessionStorage.getItem('wattwalker_pricing_shown');
+                        if (!hasSeenPricing) {
+                            setShowPricingModal(true);
+                            sessionStorage.setItem('wattwalker_pricing_shown', 'true');
+                        }
+                    }
+                }} duration={5000} />
             )}
 
             {/* Pricing Modal */}

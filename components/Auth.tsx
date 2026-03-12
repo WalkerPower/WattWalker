@@ -19,6 +19,9 @@ const Auth: React.FC = () => {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -47,6 +50,9 @@ const Auth: React.FC = () => {
         try {
           await setDoc(doc(db, 'users', user.uid), {
             email: user.email,
+            firstName: firstName.trim(),
+            lastName: lastName.trim(),
+            phone: phone.trim(),
             createdAt: Date.now(), // Critical for 5-day trial logic
             role: null, // No paid role yet
             status: 'trial'
@@ -54,7 +60,9 @@ const Auth: React.FC = () => {
           
           // Create customer document for Stripe extension
           await setDoc(doc(db, 'customers', user.uid), {
-            email: user.email
+            email: user.email,
+            name: `${firstName.trim()} ${lastName.trim()}`.trim(),
+            phone: phone.trim()
           });
         } catch (firestoreErr) {
           console.error("Error creating user document:", firestoreErr);
@@ -280,6 +288,49 @@ const Auth: React.FC = () => {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Name fields - only show on signup */}
+          {!isLogin && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">First Name</label>
+                <input
+                  type="text"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00a8f9] focus:border-transparent text-slate-900"
+                  placeholder="John"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Last Name</label>
+                <input
+                  type="text"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00a8f9] focus:border-transparent text-slate-900"
+                  placeholder="Doe"
+                  required
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Phone field - only show on signup */}
+          {!isLogin && (
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Phone Number</label>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00a8f9] focus:border-transparent text-slate-900"
+                placeholder="(555) 123-4567"
+                required
+              />
+            </div>
+          )}
+
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Email</label>
             <input
