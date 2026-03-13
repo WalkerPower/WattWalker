@@ -68,6 +68,8 @@ const App: React.FC = () => {
 
     const [error, setError] = useState<string | null>(null);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [imageFromCamera, setImageFromCamera] = useState(false);
+    const [imageSaveStatus, setImageSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
 
     // Storage State
     const [savedRecords, setSavedRecords] = useState<SavedRecord[]>([]);
@@ -236,7 +238,36 @@ const App: React.FC = () => {
         return 30; // Default fallback
     };
 
-    const handleImageSelected = async (file: File) => {
+    const handleSaveImageToDevice = async () => {
+        if (!selectedImage) return;
+        
+        setImageSaveStatus('saving');
+        
+        try {
+            const response = await fetch(selectedImage);
+            const blob = await response.blob();
+            const timestamp = new Date().toISOString().slice(0, 10);
+            const filename = `WattWalker_Bill_${timestamp}.jpg`;
+            
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            
+            setImageSaveStatus('saved');
+            setTimeout(() => setImageSaveStatus('idle'), 2000);
+        } catch (error) {
+            console.error('Error saving image:', error);
+            alert('Failed to save image. Please try again.');
+            setImageSaveStatus('idle');
+        }
+    };
+
+    const handleImageSelected = async (file: File, fromCamera: boolean = false) => {
         // Reset states
         setResult(null);
         setCalculatedData(null);
@@ -244,6 +275,8 @@ const App: React.FC = () => {
         setContactInfo({ address: '', email: '', phone: '' });
         setError(null);
         setShowDownloadSection(false);
+        setImageFromCamera(fromCamera);
+        setImageSaveStatus('idle');
 
         if (!isHeic(file)) {
             const imageUrl = URL.createObjectURL(file);
@@ -687,7 +720,40 @@ const App: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <h2 className="text-lg font-bold mb-4 text-slate-900">2. Upload Bill Graph</h2>
+                                <div className="flex items-center justify-between mb-4">
+                                    <h2 className="text-lg font-bold text-slate-900">2. Upload Bill Graph</h2>
+                                    {imageFromCamera && selectedImage && (
+                                        <button
+                                            onClick={handleSaveImageToDevice}
+                                            disabled={imageSaveStatus === 'saving'}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                                        >
+                                            {imageSaveStatus === 'saving' ? (
+                                                <>
+                                                    <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
+                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                    </svg>
+                                                    Saving...
+                                                </>
+                                            ) : imageSaveStatus === 'saved' ? (
+                                                <>
+                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                    Saved!
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                    </svg>
+                                                    Save to Device
+                                                </>
+                                            )}
+                                        </button>
+                                    )}
+                                </div>
                                 <ImageUploader
                                     onImageSelected={handleImageSelected}
                                     selectedImage={selectedImage}
