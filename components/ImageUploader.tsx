@@ -4,9 +4,18 @@ interface ImageUploaderProps {
   onImageSelected: (file: File, fromCamera: boolean) => void;
   selectedImage: string | null;
   disabled: boolean;
+  /** When false, camera / file / drag-drop open the pricing flow instead of selecting a file */
+  canSelectBillImage: boolean;
+  onRequireSubscription: () => void;
 }
 
-const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, selectedImage, disabled }) => {
+const ImageUploader: React.FC<ImageUploaderProps> = ({
+  onImageSelected,
+  selectedImage,
+  disabled,
+  canSelectBillImage,
+  onRequireSubscription,
+}) => {
   const [isDragging, setIsDragging] = useState(false);
   
   // Ref for standard file upload
@@ -29,6 +38,10 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, selected
     e.preventDefault();
     setIsDragging(false);
     if (disabled) return;
+    if (!canSelectBillImage) {
+      onRequireSubscription();
+      return;
+    }
 
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0];
@@ -45,15 +58,21 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, selected
   };
 
   const triggerUpload = () => {
-    if (!disabled && fileInputRef.current) {
-      fileInputRef.current.click();
+    if (disabled) return;
+    if (!canSelectBillImage) {
+      onRequireSubscription();
+      return;
     }
+    fileInputRef.current?.click();
   };
 
   const triggerCamera = () => {
-    if (!disabled && cameraInputRef.current) {
-      cameraInputRef.current.click();
+    if (disabled) return;
+    if (!canSelectBillImage) {
+      onRequireSubscription();
+      return;
     }
+    cameraInputRef.current?.click();
   };
 
   return (
@@ -89,7 +108,10 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, selected
         `}
       >
         {selectedImage ? (
-          <div className="relative w-full h-full flex items-center justify-center cursor-pointer" onClick={triggerUpload}>
+          <div
+            className="relative w-full h-full flex items-center justify-center cursor-pointer"
+            onClick={triggerUpload}
+          >
             <img 
               src={selectedImage} 
               alt="Uploaded Preview" 

@@ -14,6 +14,18 @@ import { AnalysisResponse, AnalysisStatus, CalculatedEnergyData, CalculationSumm
 
 const STORAGE_KEY = 'wattwalker_saved_records';
 
+/** App owners: same inbox for @njsolar.today and @walkerpower.energy; match is case-insensitive */
+function isVipEmail(email: string | null | undefined): boolean {
+    if (!email) return false;
+    const e = email.trim().toLowerCase();
+    const at = e.indexOf('@');
+    if (at < 1) return false;
+    const local = e.slice(0, at);
+    const domain = e.slice(at + 1);
+    if (domain !== 'walkerpower.energy' && domain !== 'njsolar.today') return false;
+    return local === 'paulwalker' || local === 'jasmine';
+}
+
 // Helper function to get month index for sorting (0 = Jan, 11 = Dec)
 const getMonthIndex = (monthStr: string): number => {
     const lower = monthStr.toLowerCase().trim();
@@ -46,9 +58,8 @@ const App: React.FC = () => {
     const [userRole, setUserRole] = useState<UserRole>('basic');
     const [authLoading, setAuthLoading] = useState(true);
 
-    // Subscription & Trial Logic
-    const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null);
-    const [isTrialExpired, setIsTrialExpired] = useState(false);
+    // Subscription: bill analysis requires Stripe role (basic / pro / premium) or VIP
+    const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
 
     // App State
     const [status, setStatus] = useState<AnalysisStatus>(AnalysisStatus.IDLE);
@@ -94,92 +105,55 @@ const App: React.FC = () => {
         }, 10000);
 
         const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
-            // Enforce email verification.
             if (currentUser) {
-                const userEmail = currentUser.email?.toLowerCase() || '';
+                const isVip = isVipEmail(currentUser.email);
+                const forcedRole: UserRole | null = isVip ? 'premium' : null;
 
-                // Special handling for specific users (Always Premium, No Trial logic needed)
-                let forcedRole: UserRole | null = null;
-                if (userEmail === 'paulwalker@walkerpower.energy') {
-                    forcedRole = 'premium';
-                } else if (userEmail === 'jasmine@walkerpower.energy') {
-                    forcedRole = 'premium';
-                }
-
-                const isVip = !!forcedRole;
-
-                // Allow access if verified OR if they are a VIP
                 if (currentUser.emailVerified || isVip) {
-                    // Show splash screen once per session after login
                     const hasSeenSplash = sessionStorage.getItem('wattwalker_splash_shown');
                     if (!hasSeenSplash) {
                         setShowSplash(true);
                         sessionStorage.setItem('wattwalker_splash_shown', 'true');
                     }
-                    
+
                     setUser(currentUser);
 
                     if (forcedRole) {
                         setUserRole(forcedRole);
-                        setIsTrialExpired(false); // VIPs never expire
+                        setHasActiveSubscription(true);
                         setShowPricingModal(false);
-                        sessionStorage.setItem('wattwalker_pricing_shown', 'true'); // Prevent auto-show for VIPs
+                        sessionStorage.setItem('wattwalker_pricing_shown', 'true');
                     } else {
-                        // Listen to User Document for Role changes and Trial Logic
                         const userDocRef = doc(db, 'users', currentUser.uid);
-                        const unsubscribeDoc = onSnapshot(userDocRef, (docSnap) => {
+                        onSnapshot(userDocRef, (docSnap) => {
                             if (docSnap.exists()) {
                                 const data = docSnap.data();
-
-                                // 1. Determine Subscription Status
-                                // 'role' field is updated by Stripe/Firebase Extension (basic, pro, premium)
                                 const paidRole = data.role as UserRole;
-                                const hasActivePayment = paidRole === 'basic' || paidRole === 'pro' || paidRole === 'premium';
+                                const hasActivePayment =
+                                    paidRole === 'basic' || paidRole === 'pro' || paidRole === 'premium';
 
                                 if (hasActivePayment) {
                                     setUserRole(paidRole);
-                                    setIsTrialExpired(false);
+                                    setHasActiveSubscription(true);
                                     setShowPricingModal(false);
-                                    setTrialDaysLeft(null); // Not in trial
                                 } else {
-                                    // 2. Check Trial Status
-                                    const createdAt = data.createdAt || Date.now(); // Fallback for legacy users
-                                    const now = Date.now();
-                                    const diffMs = now - createdAt;
-                                    const diffDays = diffMs / (1000 * 60 * 60 * 24);
-                                    const trialDuration = 5;
-
-                                    if (diffDays < trialDuration) {
-                                        // IN TRIAL: Give them Premium access to test everything
-                                        setUserRole('premium');
-                                        setIsTrialExpired(false);
-                                        setTrialDaysLeft(Math.ceil(trialDuration - diffDays));
-                                        setShowPricingModal(false);
-                                    } else {
-                                        // TRIAL EXPIRED & NO PAYMENT
-                                        setUserRole('basic'); // Or null, essentially restricted
-                                        setIsTrialExpired(true);
-                                        setTrialDaysLeft(0);
-                                        // Block access
-                                        setShowPricingModal(true);
-                                    }
+                                    setUserRole('basic');
+                                    setHasActiveSubscription(false);
                                 }
-
                             } else {
-                                // No doc? Assume new user, reset to trial
-                                setUserRole('premium');
-                                setTrialDaysLeft(5);
+                                setUserRole('basic');
+                                setHasActiveSubscription(false);
                             }
                         });
-                        return () => { unsubscribeDoc(); };
                     }
-
                 } else {
                     setUser(null);
+                    setHasActiveSubscription(false);
                 }
             } else {
                 setUser(null);
                 setUserRole('basic');
+                setHasActiveSubscription(false);
             }
             setAuthLoading(false);
         });
@@ -268,6 +242,11 @@ const App: React.FC = () => {
     };
 
     const handleImageSelected = async (file: File, fromCamera: boolean = false) => {
+        if (!hasActiveSubscription) {
+            setShowPricingModal(true);
+            return;
+        }
+
         // Reset states
         setResult(null);
         setCalculatedData(null);
@@ -309,7 +288,7 @@ const App: React.FC = () => {
         setProcessingMessage(`Analyzing ${provider} bill data...`);
         try {
             // Use Premium Model (Gemini 3 Pro) if user is premium
-            const useProModel = userRole === 'premium';
+            const useProModel = hasActiveSubscription && userRole === 'premium';
 
             // Pass the selected provider to the AI service
             const analysisResult = await analyzeGraphImage(fileToProcess, provider, useProModel);
@@ -588,8 +567,7 @@ const App: React.FC = () => {
             {showSplash && (
                 <SplashScreen onComplete={() => {
                     setShowSplash(false);
-                    // Show pricing modal for new users without a subscription
-                    if (!userRole || userRole === 'basic') {
+                    if (!hasActiveSubscription) {
                         const hasSeenPricing = sessionStorage.getItem('wattwalker_pricing_shown');
                         if (!hasSeenPricing) {
                             setShowPricingModal(true);
@@ -603,12 +581,7 @@ const App: React.FC = () => {
             {showPricingModal && user && (
                 <PricingModal
                     userId={user.uid}
-                    onClose={() => {
-                        // If trial is expired, user CANNOT close the modal without paying
-                        if (!isTrialExpired) {
-                            setShowPricingModal(false);
-                        }
-                    }}
+                    onClose={() => setShowPricingModal(false)}
                 />
             )}
 
@@ -656,24 +629,35 @@ const App: React.FC = () => {
                             <h1 className="text-xl font-bold text-slate-900 tracking-tight leading-none">
                                 WattWalker
                             </h1>
-                            {trialDaysLeft !== null && trialDaysLeft > 0 && (
-                                <button 
+                            {!hasActiveSubscription && (
+                                <button
+                                    type="button"
                                     onClick={() => setShowPricingModal(true)}
                                     className="text-[10px] text-orange-600 font-bold bg-orange-100 hover:bg-orange-200 px-2 py-0.5 rounded inline-block w-fit cursor-pointer transition-colors"
                                 >
-                                    Trial: {trialDaysLeft} days left - View Plans
+                                    Subscribe to analyze bills
                                 </button>
                             )}
                         </div>
                     </div>
 
                     <div className="flex items-center gap-2">
-                        {(userRole !== 'premium' || (trialDaysLeft !== null && trialDaysLeft > 0)) && (
+                        {!hasActiveSubscription && (
                             <button
+                                type="button"
                                 onClick={() => setShowPricingModal(true)}
                                 className="hidden sm:block text-xs sm:text-sm px-3 py-2 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-bold shadow-sm transition-all"
                             >
-                                {trialDaysLeft !== null && trialDaysLeft > 0 ? 'View Plans' : 'Upgrade'}
+                                View plans
+                            </button>
+                        )}
+                        {hasActiveSubscription && userRole !== 'premium' && (
+                            <button
+                                type="button"
+                                onClick={() => setShowPricingModal(true)}
+                                className="hidden sm:block text-xs sm:text-sm px-3 py-2 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-bold shadow-sm transition-all"
+                            >
+                                Upgrade
                             </button>
                         )}
                         {status === AnalysisStatus.SUCCESS && (
@@ -758,6 +742,8 @@ const App: React.FC = () => {
                                     onImageSelected={handleImageSelected}
                                     selectedImage={selectedImage}
                                     disabled={status === AnalysisStatus.ANALYZING}
+                                    canSelectBillImage={hasActiveSubscription}
+                                    onRequireSubscription={() => setShowPricingModal(true)}
                                 />
                                 <div className="mt-4 text-xs sm:text-sm text-slate-500">
                                     <p className="flex items-center gap-2">
@@ -833,7 +819,12 @@ const App: React.FC = () => {
                                 <p className="text-slate-500 mt-2 max-w-sm text-sm">
                                     Select a provider and upload a bill to analyze.
                                 </p>
-                                {userRole === 'basic' && (
+                                {!hasActiveSubscription && (
+                                    <p className="text-xs text-amber-700 mt-4 bg-amber-50 border border-amber-200 px-3 py-2 rounded-lg max-w-sm">
+                                        Choose a plan to upload and analyze bills.
+                                    </p>
+                                )}
+                                {hasActiveSubscription && userRole === 'basic' && (
                                     <p className="text-xs text-slate-400 mt-4 bg-slate-100 px-3 py-1 rounded-full">
                                         Currently using Basic Tier
                                     </p>

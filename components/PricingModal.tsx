@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PRICE_IDS } from '../billingConfig';
+import { PRICE_IDS, PLAN_DISPLAY_PRICES } from '../billingConfig';
 import { createCheckoutSession } from '../services/stripe';
 
 interface PricingModalProps {
@@ -11,11 +11,14 @@ const PricingModal: React.FC<PricingModalProps> = ({ userId, onClose }) => {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [loading, setLoading] = useState<string | null>(null);
 
+  const fmt = (n: number) =>
+    n === Math.floor(n) ? `$${n.toFixed(0)}` : `$${n.toFixed(2)}`;
+
   const handleSubscribe = async (tier: 'basic' | 'professional' | 'premium') => {
     setLoading(tier);
     try {
       const priceId = PRICE_IDS[tier][billingCycle];
-      await createCheckoutSession(userId, priceId);
+      await createCheckoutSession(userId, priceId, () => setLoading(null));
     } catch (error) {
       console.error(error);
       alert("Failed to start checkout process.");
@@ -76,7 +79,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ userId, onClose }) => {
                 <h3 className="text-lg font-bold text-slate-700">Basic</h3>
                 <div className="flex items-baseline gap-1 mt-2">
                    <span className="text-2xl font-extrabold text-slate-900">
-                     {billingCycle === 'monthly' ? '$5.99' : '$59.99'}
+                     {fmt(PLAN_DISPLAY_PRICES.basic[billingCycle])}
                    </span>
                    <span className="text-slate-500 font-medium text-xs">
                      /{billingCycle === 'monthly' ? 'mo' : 'yr'}
@@ -116,7 +119,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ userId, onClose }) => {
                 <h3 className="text-lg font-bold text-slate-900">Professional</h3>
                 <div className="flex items-baseline gap-1 mt-2">
                    <span className="text-2xl font-extrabold text-slate-900">
-                     {billingCycle === 'monthly' ? '$12.99' : '$129.99'}
+                     {fmt(PLAN_DISPLAY_PRICES.professional[billingCycle])}
                    </span>
                    <span className="text-slate-500 font-medium text-xs">
                      /{billingCycle === 'monthly' ? 'mo' : 'yr'}
@@ -163,7 +166,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ userId, onClose }) => {
                 <h3 className="text-lg font-bold text-slate-900">Premium</h3>
                 <div className="flex items-baseline gap-1 mt-2">
                    <span className="text-2xl font-extrabold text-slate-900">
-                     {billingCycle === 'monthly' ? '$19.99' : '$199.00'}
+                     {fmt(PLAN_DISPLAY_PRICES.premium[billingCycle])}
                    </span>
                    <span className="text-slate-500 font-medium text-xs">
                      /{billingCycle === 'monthly' ? 'mo' : 'yr'}

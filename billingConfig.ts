@@ -2,24 +2,31 @@
 export const DEPLOYED_URL = "https://wattwalker.njsolar.today";
 
 // Legacy constants for backward compatibility (Mapped to Premium)
-export const MONTHLY_PRICE_ID = "price_1Szn9hRTMNcgA09IeJbGq6RW";
-export const YEARLY_PRICE_ID  = "price_1Szn9jRTMNcgA09IRk01OLsH";
+export const MONTHLY_PRICE_ID = "price_1T1DVBRTMNcgA09IcxnKX4d7";
+export const YEARLY_PRICE_ID  = "price_1T1E1mRTMNcgA09IdWo1QaDE";
 
-// Comprehensive Price ID Map
+// Comprehensive Price ID Map (must be Live-mode price IDs when the Firebase extension uses a live Stripe key)
 export const PRICE_IDS = {
   basic: {
-    monthly: "price_1Szkf0RTMNcgA09IqTJuDmT2",
-    yearly: "price_1SzklWRTMNcgA09IAmEAU0Dq"
+    monthly: "price_1T1DPCRTMNcgA09IP0Lpemtu",
+    yearly: "price_1T1E33RTMNcgA09IETP6kaMo"
   },
   professional: {
-    monthly: "price_1Szkd6RTMNcgA09Ijxm8HteT",
-    yearly: "price_1SzkkoRTMNcgA09IQFuSMTLn"
+    monthly: "price_1T1DRARTMNcgA09I2L8nE2mB",
+    yearly: "price_1T1E2NRTMNcgA09I0TaXKreG"
   },
   premium: {
-    monthly: "price_1Szn9hRTMNcgA09IeJbGq6RW",
-    yearly: "price_1Szn9jRTMNcgA09IRk01OLsH"
+    monthly: "price_1T1DVBRTMNcgA09IcxnKX4d7",
+    yearly: "price_1T1E1mRTMNcgA09IdWo1QaDE"
   }
 };
+
+/** Display amounts for the pricing UI (keep in sync with Stripe product prices) */
+export const PLAN_DISPLAY_PRICES = {
+  basic: { monthly: 5.99, yearly: 59.99 },
+  professional: { monthly: 12.99, yearly: 129.99 },
+  premium: { monthly: 19.99, yearly: 199.0 }
+} as const;
 
 // Helper to detect whether the app uses hash routing.
 export function usesHashRouting(): boolean {
