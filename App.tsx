@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ImageUploader from './components/ImageUploader';
 import DataVisualizer from './components/DataVisualizer';
 import LoadingState from './components/LoadingState';
@@ -7,9 +7,9 @@ import PricingModal from './components/PricingModal';
 import SplashScreen from './components/SplashScreen';
 import { analyzeGraphImage } from './services/geminiService';
 import { isHeic, convertHeicToJpg } from './services/imageService';
-import { auth, db } from './services/firebase';
+import { auth } from './services/firebase';
+import { subscribeToStripeSubscription } from './services/subscriptionFirestore';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
-import { doc, onSnapshot } from 'firebase/firestore';
 import { AnalysisResponse, AnalysisStatus, CalculatedEnergyData, CalculationSummary, SavedRecord, UtilityProvider, UserRole } from './types';
 
 const STORAGE_KEY = 'wattwalker_saved_records';
@@ -98,13 +98,18 @@ const App: React.FC = () => {
         document.title = "WattWalker";
     }, []);
 
-    // Listen to Auth State and User Role
+    const stripeSubUnsubRef = useRef<(() => void) | null>(null);
+
+    // Listen to Auth State and Stripe subscription (Firebase extension path)
     useEffect(() => {
         const timeout = setTimeout(() => {
             setAuthLoading(false);
         }, 10000);
 
         const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+            stripeSubUnsubRef.current?.();
+            stripeSubUnsubRef.current = null;
+
             if (currentUser) {
                 const isVip = isVipEmail(currentUser.email);
                 const forcedRole: UserRole | null = isVip ? 'premium' : null;
@@ -124,27 +129,15 @@ const App: React.FC = () => {
                         setShowPricingModal(false);
                         sessionStorage.setItem('wattwalker_pricing_shown', 'true');
                     } else {
-                        const userDocRef = doc(db, 'users', currentUser.uid);
-                        onSnapshot(userDocRef, (docSnap) => {
-                            if (docSnap.exists()) {
-                                const data = docSnap.data();
-                                const paidRole = data.role as UserRole;
-                                const hasActivePayment =
-                                    paidRole === 'basic' || paidRole === 'pro' || paidRole === 'premium';
-
-                                if (hasActivePayment) {
-                                    setUserRole(paidRole);
-                                    setHasActiveSubscription(true);
-                                    setShowPricingModal(false);
-                                } else {
-                                    setUserRole('basic');
-                                    setHasActiveSubscription(false);
-                                }
-                            } else {
-                                setUserRole('basic');
-                                setHasActiveSubscription(false);
+                        // Stripe extension syncs to customers/{uid}/subscriptions — not users.role
+                        stripeSubUnsubRef.current = subscribeToStripeSubscription(
+                            currentUser.uid,
+                            ({ hasActiveSubscription: active, userRole: role }) => {
+                                setUserRole(role);
+                                setHasActiveSubscription(active);
+                                if (active) setShowPricingModal(false);
                             }
-                        });
+                        );
                     }
                 } else {
                     setUser(null);
@@ -159,6 +152,8 @@ const App: React.FC = () => {
         });
         return () => {
             clearTimeout(timeout);
+            stripeSubUnsubRef.current?.();
+            stripeSubUnsubRef.current = null;
             unsubscribeAuth();
         };
     }, []);
