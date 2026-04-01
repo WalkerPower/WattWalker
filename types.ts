@@ -19,6 +19,8 @@ export interface AnalysisResponse {
   fullAddress?: string; // Extracted address from bill
   billCost?: number;
   billUsage?: number;
+  /** JCP&L: "Last 12 Months Use (KWH)" under This Year — last 12 bar totals must sum to this */
+  last12MonthsBillKwh?: number;
   data: EnergyData[];
   metadata: GraphMetadata;
 }

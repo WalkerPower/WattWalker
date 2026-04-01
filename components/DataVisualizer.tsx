@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { CalculatedEnergyData, CalculationSummary, GraphMetadata, UtilityProvider, UserRole } from '../types';
+import { billMonthSortKey, formatBillMonthDisplay } from '../utils/billMonth';
 import {
   BarChart,
   Bar,
@@ -76,32 +77,6 @@ const CustomTooltip = ({ active, payload, label, provider }: any) => {
   return null;
 };
 
-// Helper function to get month index for sorting (0 = Jan, 11 = Dec)
-const getMonthIndex = (monthStr: string): number => {
-  const lower = monthStr.toLowerCase().trim();
-  if (lower.startsWith('ja')) return 0;
-  if (lower.startsWith('f')) return 1;
-  if (lower.startsWith('mar')) return 2;
-  if (lower.startsWith('ap')) return 3;
-  if (lower.startsWith('may')) return 4;
-  if (lower.startsWith('jun')) return 5;
-  if (lower.startsWith('jul')) return 6;
-  if (lower.startsWith('au')) return 7;
-  if (lower.startsWith('s')) return 8;
-  if (lower.startsWith('o')) return 9;
-  if (lower.startsWith('n')) return 10;
-  if (lower.startsWith('d')) return 11;
-  return -1; // Fallback
-};
-
-// Helper to format month name (e.g. "Apr 2022" -> "April")
-const formatMonthName = (monthStr: string): string => {
-  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  const idx = getMonthIndex(monthStr);
-  if (idx !== -1) return months[idx];
-  return monthStr.split(' ')[0]; // Fallback to first word
-};
-
 const DataVisualizer: React.FC<DataVisualizerProps> = ({
   data,
   metadata,
@@ -164,8 +139,14 @@ const DataVisualizer: React.FC<DataVisualizerProps> = ({
   // Process data for the Table View
   const tableData = useMemo(() => {
     const last12 = [...data].slice(-12);
-    const sorted = last12.sort((a, b) => getMonthIndex(a.month) - getMonthIndex(b.month));
-    return sorted.map(row => ({
+    const tagged = last12.map((row, i) => ({ row, i }));
+    tagged.sort((a, b) => {
+      const ka = billMonthSortKey(a.row.month, a.i);
+      const kb = billMonthSortKey(b.row.month, b.i);
+      if (ka !== kb) return ka - kb;
+      return a.i - b.i;
+    });
+    return tagged.map(({ row }) => ({
       ...row,
       estimatedCost: row.monthlyTotal * pricePerKwh
     }));
@@ -420,7 +401,7 @@ const DataVisualizer: React.FC<DataVisualizerProps> = ({
                 {tableData.map((row, index) => (
                   <tr key={index} className="border-b border-slate-200 hover:bg-slate-50">
                     <td className="px-4 py-2 border border-slate-300 text-slate-900 text-lg font-semibold whitespace-nowrap">
-                      {formatMonthName(row.month)}
+                      {formatBillMonthDisplay(row.month)}
                     </td>
                     <td className="px-4 py-2 border border-slate-300 text-center font-bold text-slate-900 text-lg">
                       {row.monthlyTotal.toFixed(0)}

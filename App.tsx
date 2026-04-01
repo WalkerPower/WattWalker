@@ -11,6 +11,7 @@ import { auth } from './services/firebase';
 import { subscribeToStripeSubscription } from './services/subscriptionFirestore';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { AnalysisResponse, AnalysisStatus, CalculatedEnergyData, CalculationSummary, SavedRecord, UtilityProvider, UserRole } from './types';
+import { calendarMonthIndexForCsv } from './utils/billMonth';
 
 const STORAGE_KEY = 'wattwalker_saved_records';
 
@@ -26,31 +27,13 @@ function isVipEmail(email: string | null | undefined): boolean {
     return local === 'paulwalker' || local === 'jasmine';
 }
 
-// Helper function to get month index for sorting (0 = Jan, 11 = Dec)
-const getMonthIndex = (monthStr: string): number => {
-    const lower = monthStr.toLowerCase().trim();
-    if (lower.startsWith('ja')) return 0;
-    if (lower.startsWith('f')) return 1;
-    if (lower.startsWith('mar')) return 2;
-    if (lower.startsWith('ap')) return 3;
-    if (lower.startsWith('may')) return 4;
-    if (lower.startsWith('jun')) return 5;
-    if (lower.startsWith('jul')) return 6;
-    if (lower.startsWith('au')) return 7;
-    if (lower.startsWith('s')) return 8;
-    if (lower.startsWith('o')) return 9;
-    if (lower.startsWith('n')) return 10;
-    if (lower.startsWith('d')) return 11;
-    return -1; // Fallback
-};
+/** Manual Premium (Zelle / comp): same app treatment as VIP; remove when they pay via Stripe or term ends */
+const COMPED_PREMIUM_EMAILS = new Set(['wayne@yourpartnerinsolar.com']);
 
-// Helper to format month name (e.g. "Apr 2022" -> "April")
-const formatMonthName = (monthStr: string): string => {
-    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    const idx = getMonthIndex(monthStr);
-    if (idx !== -1) return months[idx];
-    return monthStr.split(' ')[0]; // Fallback to first word
-};
+function isCompedPremiumEmail(email: string | null | undefined): boolean {
+    if (!email) return false;
+    return COMPED_PREMIUM_EMAILS.has(email.trim().toLowerCase());
+}
 
 const App: React.FC = () => {
     // Auth State
@@ -112,9 +95,10 @@ const App: React.FC = () => {
 
             if (currentUser) {
                 const isVip = isVipEmail(currentUser.email);
-                const forcedRole: UserRole | null = isVip ? 'premium' : null;
+                const isComped = isCompedPremiumEmail(currentUser.email);
+                const forcedRole: UserRole | null = isVip || isComped ? 'premium' : null;
 
-                if (currentUser.emailVerified || isVip) {
+                if (currentUser.emailVerified || isVip || isComped) {
                     const hasSeenSplash = sessionStorage.getItem('wattwalker_splash_shown');
                     if (!hasSeenSplash) {
                         setShowSplash(true);
@@ -328,6 +312,76 @@ const App: React.FC = () => {
                 };
             });
 
+            // Rightmost bar = current period on the graph; align with bill text totals (billUsage / billCost).
+            // Graph-only estimates often drift from "Total electric used this month" on the bill.
+            if (billUsage > 0 && processedData.length > 0) {
+                const i = processedData.length - 1;
+                const row = processedData[i];
+                const days = row.daysInMonth > 0 ? row.daysInMonth : 30;
+                const avgDaily = billUsage / days;
+                processedData[i] = {
+                    ...row,
+                    monthlyTotal: billUsage,
+                    adjustedDailyUsage: Number(avgDaily.toFixed(1)),
+                    estimatedCost: pricePerKwh > 0 ? billUsage * pricePerKwh : row.estimatedCost,
+                    usage: provider === 'PSEG' ? Number(avgDaily.toFixed(1)) : billUsage
+                };
+            }
+
+            // JCP&L: "Last 12 Months Use (KWH)" on bill must equal sum of the rightmost 12 bars.
+            // Keep current month = billUsage; scale the other 11 months in that window proportionally.
+            if (provider === 'JCPL' && processedData.length >= 12) {
+                const annualKwh = analysisResult.last12MonthsBillKwh ?? 0;
+                if (annualKwh > 0) {
+                    const n = processedData.length;
+                    const lastIdx = n - 1;
+                    const firstOf12 = n - 12;
+                    const currentMonthKwh = processedData[lastIdx].monthlyTotal;
+                    const targetPrior11 = annualKwh - currentMonthKwh;
+                    if (targetPrior11 >= 0) {
+                        let sumPrior11 = 0;
+                        for (let j = firstOf12; j < lastIdx; j++) {
+                            sumPrior11 += processedData[j].monthlyTotal;
+                        }
+                        if (sumPrior11 > 0) {
+                            const scale = targetPrior11 / sumPrior11;
+                            for (let j = firstOf12; j < lastIdx; j++) {
+                                const row = processedData[j];
+                                const newTotal = row.monthlyTotal * scale;
+                                const d = row.daysInMonth > 0 ? row.daysInMonth : 30;
+                                processedData[j] = {
+                                    ...row,
+                                    monthlyTotal: newTotal,
+                                    adjustedDailyUsage: Number((newTotal / d).toFixed(1)),
+                                    usage: newTotal,
+                                    estimatedCost:
+                                        pricePerKwh > 0 ? newTotal * pricePerKwh : row.estimatedCost
+                                };
+                            }
+                            let sum12 = 0;
+                            for (let j = firstOf12; j <= lastIdx; j++) {
+                                sum12 += processedData[j].monthlyTotal;
+                            }
+                            const drift = annualKwh - sum12;
+                            if (Math.abs(drift) > 1e-5) {
+                                const fixIdx = lastIdx - 1;
+                                const row = processedData[fixIdx];
+                                const newTotal = row.monthlyTotal + drift;
+                                const d = row.daysInMonth > 0 ? row.daysInMonth : 30;
+                                processedData[fixIdx] = {
+                                    ...row,
+                                    monthlyTotal: newTotal,
+                                    adjustedDailyUsage: Number((newTotal / d).toFixed(1)),
+                                    usage: newTotal,
+                                    estimatedCost:
+                                        pricePerKwh > 0 ? newTotal * pricePerKwh : row.estimatedCost
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+
             setCalculatedData(processedData);
 
             // Calculate Last 12 Months Summary
@@ -440,7 +494,7 @@ const App: React.FC = () => {
 
             const monthUsageMap = new Array(12).fill('');
             last12Data.forEach(item => {
-                const idx = getMonthIndex(item.month);
+                const idx = calendarMonthIndexForCsv(item.month);
                 if (idx >= 0 && idx < 12) {
                     monthUsageMap[idx] = item.monthlyTotal.toFixed(0);
                 }
@@ -481,7 +535,7 @@ const App: React.FC = () => {
 
             const monthUsageMap = new Array(12).fill('');
             last12Data.forEach(item => {
-                const idx = getMonthIndex(item.month);
+                const idx = calendarMonthIndexForCsv(item.month);
                 if (idx >= 0 && idx < 12) {
                     monthUsageMap[idx] = item.monthlyTotal.toFixed(0);
                 }

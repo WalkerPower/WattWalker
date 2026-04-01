@@ -47,6 +47,7 @@ export const analyzeGraphImage = async (file: File, provider: UtilityProvider, u
       - **Customer Name**: Find the First and Last Name. If multiple, use the first one found (e.g. under "Bill For").
       - **Full Address**: Extract the full service address (Street, City, State, Zip) often found under the customer name or "Service Address".
       - **Bill Cost**: Extract the total amount due/current charges ($).
+      - **Consistency**: The **Total Usage (Current Month)** value you extract from the bill text (used for billUsage) MUST be the same total kWh represented by the **rightmost bar** on the usage graph for the current billing period. The graph bar for that month must reflect that total (for PSE&G: total kWh for the period; the graph may show average daily, but that bar corresponds to this total divided by days in that billing month).
     `;
 
     // Provider Specific Instructions for Bill Usage (Current Month)
@@ -64,10 +65,11 @@ export const analyzeGraphImage = async (file: File, provider: UtilityProvider, u
 
     prompt += `
       **Task 2: Identify Axis Scales (Graph Analysis)**
+      - **Typical NJ usage graph layout**: The bar chart is usually a **rectangle** with **kWh** on the **vertical (left)** axis. Bars start at **zero** (no bar extends below zero). The **month** for each bar is shown with a **1–3 letter abbreviation** (or full month name) **below** that chart area, along the bottom—not plotted as a Y-axis value above zero.
       - **Y-Axis Labels**: List EVERY number label explicitly written on the Y-axis.
         - "yAxisMin": lowest number.
         - "yAxisMax": highest number.
-      - **X-Axis**: Identify the month labels.
+      - **X-Axis / months**: Use **only** the labels **under** the bar group that denote **calendar months** (e.g. J F M A M J J A S O N D or Mar, Apr, Aug). JCP&L also shows **A / E / C** (**Actual / Estimate / Customer**) **inside the chart rectangle**, on or above each bar—these are **not** month labels; see JCP&L instructions below.
     `;
 
     // Provider Specific Instructions for Graph Bars
@@ -78,15 +80,22 @@ export const analyzeGraphImage = async (file: File, provider: UtilityProvider, u
       - **CRITICAL**: The graph likely compares this year vs last year. 
       - **ONLY measure the BLUE bars** (representing the current year). Ignore gray or other colored bars.
       - Estimate the kWh value for each BLUE bar based on the Y-axis.
+      - **Rightmost BLUE bar** (most recent month): Its kWh value must match **billUsage** (total kWh for that month from the bill / generation charges), not a conflicting estimate.
         `;
     } else if (provider === 'JCPL') {
         prompt += `
+      **JCP&L — Annual total (required)**
+      - Below the Usage History graph, in the **"This Year"** section, find **"Last 12 Months Use (KWH)"** (or the same meaning, e.g. annual / rolling 12‑month kWh).
+      - Return that exact integer as **last12MonthsBillKwh**. The sum of the **last 12 months** of bar data must equal this number together with **billUsage** for the current (rightmost) month.
+
       **Task 3: Extract Graph Data Points (JCP&L Specific)**
-      - The bars represent **TOTAL MONTHLY USAGE (kWh)**.
-      - Look for the "Usage History" graph.
-      - The bars may be labeled with 'A' (Actual), 'E' (Estimate), or 'C' (Customer). Treat all these bars as valid usage.
-      - Extract the value for each bar corresponding to the month labels on the X-axis.
-      - Estimate the kWh value based on the Y-axis height.
+      - The bars represent **TOTAL MONTHLY USAGE (kWh)** for each month on the Usage History graph.
+      - **CRITICAL — Two different letter rows under the chart (do not confuse them):**
+        1. **Reading-type letters** (legend **A**=Actual, **E**=Estimate, **C**=Customer): appear **inside the graph rectangle**, on or **above** each bar. They mean **meter read type**, not the month. **Do not** put **only** A, E, or C from **these** positions into \`month\`. **April** and **August** are normal months—use the **month labels below the chart** and output **Apr 2025** / **Aug 2025** (or **MMM YYYY**).
+        2. **Month row**: The **month initials or names** printed **below** the bar chart identify each bar’s calendar month. Use **that** row plus statement dates to assign each bar’s \`month\`.
+      - For **each bar left to right**, output \`month\` as **three-letter month + space + 4-digit year** (e.g. **Sep 2024**, **Oct 2024**, … **Sep 2025** for the rightmost bar if that is the current period). Use the bill’s statement date and billing period to infer years so **June vs July** and **April vs August** are never ambiguous.
+      - Estimate kWh from the **bar height** and Y-axis.
+      - **Rightmost bar** kWh must match **billUsage** for the current billing period.
         `;
     } else {
         // Default to PSE&G logic
@@ -94,12 +103,20 @@ export const analyzeGraphImage = async (file: File, provider: UtilityProvider, u
       **Task 3: Extract Graph Data Points (PSE&G Specific)**
       - The bars represent **AVERAGE DAILY USAGE (kWh)**.
       - For each bar, estimate the daily usage value based on the Y-axis.
+      - **Rightmost bar (current / most recent month on the graph)**: Its implied **monthly total** (average daily × number of days in that month on the graph) must match the **Total Usage (Current Month)** you report in billUsage. Adjust your reading of that bar if needed so the numbers agree.
         `;
     }
 
     // Select model based on user tier
     // Gemini 3.1 Pro for Premium users (better reasoning), Gemini 3.1 Flash Lite for Basic/Pro
     const modelName = useProModel ? 'gemini-3.1-pro-preview' : 'gemini-3.1-flash-lite-preview';
+
+    const monthFieldDescription =
+      provider === 'JCPL'
+        ? 'REQUIRED format "MMM YYYY" (e.g. Apr 2025, Aug 2025, Sep 2025). One per bar left to right. Do not use lone A/E/C from the Actual/Estimate/Customer row; April and August must be Apr/Aug with year.'
+        : provider === 'PSEG'
+          ? 'Month label for the bar (as on the graph axis).'
+          : 'Month label for the bar (as on the graph axis).';
 
     const response = await getAI().models.generateContent({
       model: modelName,
@@ -118,6 +135,11 @@ export const analyzeGraphImage = async (file: File, provider: UtilityProvider, u
             fullAddress: { type: Type.STRING, description: "Full Service Address (Street, City, State, Zip)" },
             billCost: { type: Type.NUMBER, description: "Total cost of the current bill" },
             billUsage: { type: Type.NUMBER, description: "Total kWh usage for the current bill" },
+            last12MonthsBillKwh: {
+              type: Type.NUMBER,
+              description:
+                "JCP&L only: integer kWh from 'Last 12 Months Use (KWH)' in This Year below graph; omit or 0 if not JCP&L or not visible",
+            },
             metadata: {
               type: Type.OBJECT,
               properties: {
@@ -135,7 +157,7 @@ export const analyzeGraphImage = async (file: File, provider: UtilityProvider, u
               items: {
                 type: Type.OBJECT,
                 properties: {
-                  month: { type: Type.STRING },
+                  month: { type: Type.STRING, description: monthFieldDescription },
                   usage: { type: Type.NUMBER, description: provider === 'PSEG' ? "Average Daily Usage" : "Total Monthly Usage" }
                 },
                 required: ['month', 'usage']
