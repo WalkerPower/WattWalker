@@ -62,4 +62,6 @@ export interface SavedRecord {
   pricePerKwh: number;
   summary: CalculationSummary;
   data: CalculatedEnergyData[];
+  /** Premium lead notes (persisted with record) */
+  notes?: string;
 }

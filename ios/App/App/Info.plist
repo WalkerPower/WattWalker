@@ -48,7 +48,7 @@
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>WattWalker uses the camera to capture photos of your energy bill graphs for analysis and data extraction.</string>
+	<string>WattWalker uses the camera to capture photos of your energy bill graphs for analysis and data extraction, and to read your service address from the first page of your bill. Please hold camera directly over the first page to collect address.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>WattWalker needs access to your photo library to select images of energy bill graphs for analysis and data extraction.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>

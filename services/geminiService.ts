@@ -187,3 +187,72 @@ export const analyzeGraphImage = async (file: File, provider: UtilityProvider, u
     throw error;
   }
 };
+
+/**
+ * OCR the first page of a bill to extract only the **service address** (not mailing address).
+ * PSE&G: section labeled "SERVICE ADDRESS" (often with a small house icon).
+ * Atlantic City Electric (ACE): text after the label "Service Address:".
+ */
+export const extractServiceAddressFromBillPage = async (
+  file: File,
+  provider: 'PSEG' | 'ACE',
+  useProModel: boolean = true
+): Promise<string> => {
+  const imagePart = await fileToGenerativePart(file);
+
+  const providerLines =
+    provider === 'ACE'
+      ? `
+      This is an **Atlantic City Electric (ACE)** bill first page.
+      Find the line or label **"Service Address:"** (spacing/case may vary).
+      Extract **only** the service address text **immediately following** that label — typically the street line and the city, state, and ZIP line(s).
+      Do **not** use the payment coupon duplicate unless the header block is unreadable.
+      Do **not** confuse with mailing address or account names.
+      `
+      : `
+      This is a **PSE&G (PSEG)** energy bill first page.
+      Find the section headed **"SERVICE ADDRESS"** (often shown in bold uppercase, sometimes near a small house icon).
+      Extract **only** the address lines under that heading (street, then city/state/ZIP including ZIP+4 if shown).
+      Do **not** use customer name, account number, or mailing address blocks.
+      `;
+
+  const prompt = `
+      You are reading a photo of the first page of a New Jersey electric utility bill.
+
+      ${providerLines}
+
+      **Output**: Return the full service address as a single string suitable for a form field.
+      Use a comma between street and city if both are present (e.g. "123 MAIN ST, TOWN NJ 08081").
+      Preserve digits and abbreviations as printed. If the service address cannot be found, return an empty string.
+    `;
+
+  const modelName = useProModel ? 'gemini-3.1-pro-preview' : 'gemini-3.1-flash-lite-preview';
+
+  const response = await getAI().models.generateContent({
+    model: modelName,
+    contents: {
+      parts: [imagePart, { text: prompt }],
+    },
+    config: {
+      responseMimeType: 'application/json',
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          fullAddress: {
+            type: Type.STRING,
+            description: 'Service address only; empty if not found',
+          },
+        },
+        required: ['fullAddress'],
+      },
+    },
+  });
+
+  const text = response.text;
+  if (!text) {
+    throw new Error('No data returned from AI for address extraction.');
+  }
+
+  const parsed = JSON.parse(text) as { fullAddress?: string };
+  return (parsed.fullAddress ?? '').trim();
+};

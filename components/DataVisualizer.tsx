@@ -1,6 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { CalculatedEnergyData, CalculationSummary, GraphMetadata, UtilityProvider, UserRole } from '../types';
 import { billMonthSortKey, formatBillMonthDisplay } from '../utils/billMonth';
+import { extractServiceAddressFromBillPage } from '../services/geminiService';
+import { isHeic, convertHeicToJpg } from '../services/imageService';
 import {
   BarChart,
   Bar,
@@ -21,7 +23,7 @@ interface DataVisualizerProps {
   billCost?: number;
   billUsage?: number;
   onSaveRecord: () => void;
-  contactInfo: { address: string; email: string; phone: string };
+  contactInfo: { address: string; email: string; phone: string; notes?: string };
   onContactInfoChange: (field: string, value: string) => void;
   provider: UtilityProvider;
   userRole: UserRole;
@@ -108,6 +110,131 @@ const DataVisualizer: React.FC<DataVisualizerProps> = ({
   const showInputs = isPremium;
   const showAddressInput = isPro || isPremium;
   const showEmailPhoneInput = isPremium;
+  const showPremiumAddressCamera =
+    isPremium && (provider === 'PSEG' || provider === 'ACE');
+
+  const addressCameraInputRef = useRef<HTMLInputElement>(null);
+  const addressFileInputRef = useRef<HTMLInputElement>(null);
+  const addressPageUrlRef = useRef<string | null>(null);
+  const addressCameraToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [addressCameraToast, setAddressCameraToast] = useState(false);
+  const [addressOcrBusy, setAddressOcrBusy] = useState(false);
+  const [addressPageUrl, setAddressPageUrl] = useState<string | null>(null);
+  /** Camera captures get a blob URL so the subscriber can Save to Device; file uploads do not. */
+  const [addressPageFromCamera, setAddressPageFromCamera] = useState(false);
+  const [addressImageSaveStatus, setAddressImageSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+
+  useEffect(() => {
+    return () => {
+      if (addressCameraToastTimerRef.current) {
+        clearTimeout(addressCameraToastTimerRef.current);
+        addressCameraToastTimerRef.current = null;
+      }
+      if (addressPageUrlRef.current) {
+        URL.revokeObjectURL(addressPageUrlRef.current);
+        addressPageUrlRef.current = null;
+      }
+    };
+  }, []);
+
+  const startAddressCameraFlow = () => {
+    if (!showPremiumAddressCamera || addressOcrBusy || addressCameraToast) return;
+    setAddressCameraToast(true);
+    addressCameraToastTimerRef.current = setTimeout(() => {
+      setAddressCameraToast(false);
+      addressCameraToastTimerRef.current = null;
+      addressCameraInputRef.current?.click();
+    }, 2000);
+  };
+
+  const triggerAddressFileUpload = () => {
+    if (!showPremiumAddressCamera || addressOcrBusy || addressCameraToast) return;
+    addressFileInputRef.current?.click();
+  };
+
+  const handleAddressPageSelected = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    source: 'camera' | 'upload'
+  ) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !file.type.startsWith('image/')) return;
+
+    setAddressOcrBusy(true);
+    setAddressImageSaveStatus('idle');
+
+    try {
+      let fileToRead = file;
+      if (isHeic(file)) {
+        fileToRead = await convertHeicToJpg(file);
+      }
+
+      if (source === 'upload') {
+        if (addressPageUrlRef.current) {
+          URL.revokeObjectURL(addressPageUrlRef.current);
+          addressPageUrlRef.current = null;
+        }
+        setAddressPageUrl(null);
+        setAddressPageFromCamera(false);
+      } else {
+        if (addressPageUrlRef.current) {
+          URL.revokeObjectURL(addressPageUrlRef.current);
+        }
+        const url = URL.createObjectURL(fileToRead);
+        addressPageUrlRef.current = url;
+        setAddressPageUrl(url);
+        setAddressPageFromCamera(true);
+      }
+
+      const addr = await extractServiceAddressFromBillPage(
+        fileToRead,
+        provider === 'ACE' ? 'ACE' : 'PSEG',
+        userRole === 'premium'
+      );
+      if (addr) {
+        onContactInfoChange('address', addr);
+      } else {
+        alert(
+          'Could not detect a service address on this page. Try again with a clearer image, or enter the address manually.'
+        );
+      }
+    } catch (err) {
+      console.error(err);
+      alert(
+        err instanceof Error
+          ? err.message
+          : 'Failed to read the image. Check your connection and try again.'
+      );
+    } finally {
+      setAddressOcrBusy(false);
+    }
+  };
+
+  const handleSaveAddressPageToDevice = async () => {
+    if (!addressPageUrl) return;
+    setAddressImageSaveStatus('saving');
+    try {
+      const response = await fetch(addressPageUrl);
+      const blob = await response.blob();
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const filename = `WattWalker_ServiceAddress_${timestamp}.jpg`;
+      const dl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = dl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(dl);
+      setAddressImageSaveStatus('saved');
+      setTimeout(() => setAddressImageSaveStatus('idle'), 2000);
+    } catch (error) {
+      console.error('Error saving address page image:', error);
+      alert('Failed to save image. Please try again.');
+      setAddressImageSaveStatus('idle');
+    }
+  };
 
   const showSummaryStats = isPro || isPremium;
   const showTable = isPro || isPremium;
@@ -169,6 +296,15 @@ const DataVisualizer: React.FC<DataVisualizerProps> = ({
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xl h-full flex flex-col relative">
 
+      {addressCameraToast && (
+        <div
+          className="fixed top-20 left-1/2 z-[60] -translate-x-1/2 max-w-[min(90vw,24rem)] px-4 py-3 rounded-xl bg-slate-900 text-white text-sm font-medium text-center shadow-2xl border border-slate-700 pointer-events-none"
+          role="status"
+        >
+          Please hold camera directly over the first page to collect address.
+        </div>
+      )}
+
       {/* Top Details Section */}
       <div className="p-5 sm:p-6 space-y-6 bg-slate-50 border-b border-slate-200">
 
@@ -179,7 +315,7 @@ const DataVisualizer: React.FC<DataVisualizerProps> = ({
             <div className="text-slate-500 text-xs uppercase tracking-wider font-bold mb-1">Extracted Bill Details</div>
             <div className="text-slate-400 text-sm font-medium">Customer Name</div>
             <div className="text-slate-900 text-2xl sm:text-3xl font-bold mt-1 uppercase tracking-tight">
-              {customerName || "NOT FOUND"}
+              {(customerName ?? '').trim() || 'Name Not Available'}
             </div>
           </div>
 
@@ -222,6 +358,100 @@ const DataVisualizer: React.FC<DataVisualizerProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {showAddressInput && (
               <div className="space-y-1">
+                {showPremiumAddressCamera && (
+                  <>
+                    <input
+                      ref={addressCameraInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={(e) => handleAddressPageSelected(e, 'camera')}
+                    />
+                    <input
+                      ref={addressFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleAddressPageSelected(e, 'upload')}
+                    />
+                    <div className="flex items-center justify-between gap-2 min-h-[36px]">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={startAddressCameraFlow}
+                          disabled={addressOcrBusy || addressCameraToast}
+                          title="Capture service address from bill first page"
+                          className="flex items-center justify-center w-10 h-10 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:border-[#00a8f9] transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                          aria-label="Scan service address with camera"
+                        >
+                          {addressOcrBusy ? (
+                            <svg className="animate-spin w-5 h-5 text-[#00a8f9]" fill="none" viewBox="0 0 24 24" aria-hidden={true}>
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                          ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6" aria-hidden={true}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
+                            </svg>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={triggerAddressFileUpload}
+                          disabled={addressOcrBusy || addressCameraToast}
+                          title="Upload an image of the bill first page to read the service address"
+                          className="flex items-center justify-center w-10 h-10 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:border-[#00a8f9] transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                          aria-label="Upload image for service address"
+                        >
+                          {addressOcrBusy ? (
+                            <svg className="animate-spin w-5 h-5 text-[#00a8f9]" fill="none" viewBox="0 0 24 24" aria-hidden={true}>
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                          ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6" aria-hidden={true}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                      {addressPageFromCamera && addressPageUrl && (
+                        <button
+                          type="button"
+                          onClick={handleSaveAddressPageToDevice}
+                          disabled={addressImageSaveStatus === 'saving'}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                        >
+                          {addressImageSaveStatus === 'saving' ? (
+                            <>
+                              <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" aria-hidden={true}>
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                              </svg>
+                              Saving...
+                            </>
+                          ) : addressImageSaveStatus === 'saved' ? (
+                            <>
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden={true}>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              Saved!
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden={true}>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                              </svg>
+                              Save to Device
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
                 <label className="text-[10px] uppercase text-slate-500 font-bold tracking-wider">Full Address</label>
                 <input
                   type="text"
@@ -431,6 +661,26 @@ const DataVisualizer: React.FC<DataVisualizerProps> = ({
             <div className="mt-4 text-xs text-slate-500 italic">
               * Showing data for last 12 months, sorted by month. Costs estimated based on current $/kWh.
             </div>
+          </div>
+        )}
+        {canSave && (
+          <div className="mt-6 pt-6 border-t border-slate-200 space-y-2">
+            <label htmlFor="bill-notes" className="text-[10px] uppercase text-slate-500 font-bold tracking-wider">
+              Notes for this bill
+            </label>
+            <p className="text-xs text-slate-500">
+              Saved with this entry in the Notes column after December when you save or export the spreadsheet.
+            </p>
+            <textarea
+              id="bill-notes"
+              maxLength={150}
+              rows={3}
+              placeholder="Optional note (up to 150 characters)"
+              className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-[#00a8f9] focus:ring-1 focus:ring-[#00a8f9] transition-colors placeholder-slate-400 resize-y min-h-[4.5rem]"
+              value={contactInfo.notes ?? ''}
+              onChange={(e) => onContactInfoChange('notes', e.target.value)}
+            />
+            <p className="text-[10px] text-slate-400 font-medium">{(contactInfo.notes ?? '').length} / 150 characters</p>
           </div>
         )}
       </div>

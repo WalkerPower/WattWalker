@@ -5,6 +5,7 @@ import LoadingState from './components/LoadingState';
 import Auth from './components/Auth';
 import PricingModal from './components/PricingModal';
 import SplashScreen from './components/SplashScreen';
+import LeadsList from './components/LeadsList';
 import { analyzeGraphImage } from './services/geminiService';
 import { isHeic, convertHeicToJpg } from './services/imageService';
 import { auth } from './services/firebase';
@@ -14,6 +15,14 @@ import { AnalysisResponse, AnalysisStatus, CalculatedEnergyData, CalculationSumm
 import { calendarMonthIndexForCsv } from './utils/billMonth';
 
 const STORAGE_KEY = 'wattwalker_saved_records';
+
+function escapeCsvCell(val: string): string {
+    const s = String(val ?? '');
+    if (/[",\n\r]/.test(s)) {
+        return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+}
 
 /** App owners: same inbox for @njsolar.today and @walkerpower.energy; match is case-insensitive */
 function isVipEmail(email: string | null | undefined): boolean {
@@ -58,7 +67,7 @@ const App: React.FC = () => {
     const [summary, setSummary] = useState<CalculationSummary | null>(null);
 
     // State for Manual User Inputs
-    const [contactInfo, setContactInfo] = useState({ address: '', email: '', phone: '' });
+    const [contactInfo, setContactInfo] = useState({ address: '', email: '', phone: '', notes: '' });
 
     const [error, setError] = useState<string | null>(null);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -72,6 +81,11 @@ const App: React.FC = () => {
 
     // Professional View Records Modal
     const [showRecordsModal, setShowRecordsModal] = useState(false);
+    const [proSearchUpsellBlocking, setProSearchUpsellBlocking] = useState(false);
+    const proSearchGateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Premium lead hub (full-screen list + search)
+    const [showLeadsList, setShowLeadsList] = useState(false);
 
     // Splash Screen State - shows once per session after login
     const [showSplash, setShowSplash] = useState(false);
@@ -80,6 +94,16 @@ const App: React.FC = () => {
     useEffect(() => {
         document.title = "WattWalker";
     }, []);
+
+    useEffect(() => {
+        if (!showRecordsModal) {
+            if (proSearchGateTimerRef.current) {
+                clearTimeout(proSearchGateTimerRef.current);
+                proSearchGateTimerRef.current = null;
+            }
+            setProSearchUpsellBlocking(false);
+        }
+    }, [showRecordsModal]);
 
     const stripeSubUnsubRef = useRef<(() => void) | null>(null);
 
@@ -230,7 +254,7 @@ const App: React.FC = () => {
         setResult(null);
         setCalculatedData(null);
         setSummary(null);
-        setContactInfo({ address: '', email: '', phone: '' });
+        setContactInfo({ address: '', email: '', phone: '', notes: '' });
         setError(null);
         setShowDownloadSection(false);
         setImageFromCamera(fromCamera);
@@ -407,7 +431,7 @@ const App: React.FC = () => {
         setResult(null);
         setCalculatedData(null);
         setSummary(null);
-        setContactInfo({ address: '', email: '', phone: '' });
+        setContactInfo({ address: '', email: '', phone: '', notes: '' });
         setError(null);
         setSelectedImage(null);
         setProcessingMessage('');
@@ -420,10 +444,41 @@ const App: React.FC = () => {
         setContactInfo(prev => ({ ...prev, [field]: value }));
     };
 
+    const handleUpdateLeadNotes = (recordId: string, notes: string) => {
+        setSavedRecords((prev) => {
+            const next = prev.map((r) => (r.id === recordId ? { ...r, notes } : r));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+            return next;
+        });
+    };
+
+    const handleProRecordSearchFocus = () => {
+        if (userRole !== 'pro') return;
+        setProSearchUpsellBlocking(true);
+        if (proSearchGateTimerRef.current) {
+            clearTimeout(proSearchGateTimerRef.current);
+        }
+        proSearchGateTimerRef.current = setTimeout(() => {
+            setProSearchUpsellBlocking(false);
+            proSearchGateTimerRef.current = null;
+        }, 5000);
+    };
+
+    const handleProSearchUpgradeClick = () => {
+        if (proSearchGateTimerRef.current) {
+            clearTimeout(proSearchGateTimerRef.current);
+            proSearchGateTimerRef.current = null;
+        }
+        setProSearchUpsellBlocking(false);
+        setShowPricingModal(true);
+    };
+
     const handleSaveToStorage = () => {
         if (!result || !calculatedData || !summary) return;
 
         const pricePerKwh = (result.billCost && result.billUsage) ? result.billCost / result.billUsage : 0;
+
+        const notesTrimmed = (contactInfo.notes ?? '').slice(0, 150);
 
         const newRecord: SavedRecord = {
             id: crypto.randomUUID(),
@@ -437,7 +492,8 @@ const App: React.FC = () => {
             billUsage: result.billUsage || 0,
             pricePerKwh: pricePerKwh,
             summary: summary,
-            data: calculatedData
+            data: calculatedData,
+            notes: notesTrimmed || undefined,
         };
 
         const updatedRecords = [...savedRecords, newRecord];
@@ -468,7 +524,8 @@ const App: React.FC = () => {
             ['Annual Cost'],
             ['Avg Monthly Usage'],
             ['Avg Monthly Cost'],
-            ...months.map(m => [m]) // Usage rows
+            ...months.map(m => [m]), // Usage rows (January–December)
+            ['Notes'],
         ];
 
         savedRecords.forEach(record => {
@@ -504,6 +561,8 @@ const App: React.FC = () => {
             months.forEach((_, idx) => {
                 rows[11 + idx].push(monthUsageMap[idx]);
             });
+
+            rows[23].push(escapeCsvCell(record.notes ?? ''));
         });
 
         return rows.map(r => r.join(',')).join('\n');
@@ -520,7 +579,8 @@ const App: React.FC = () => {
             'Current Bill Cost', 'Current Month Usage', 'Price per kWh',
             'Annual Usage', 'Annual Cost', 'Avg Monthly Usage', 'Avg Monthly Cost',
             'January', 'February', 'March', 'April', 'May', 'June',
-            'July', 'August', 'September', 'October', 'November', 'December'
+            'July', 'August', 'September', 'October', 'November', 'December',
+            'Notes',
         ];
 
         const csvRows = [headers.join(',')];
@@ -555,7 +615,8 @@ const App: React.FC = () => {
                 `$${annualCost.toFixed(0)}`,
                 avgMonthlyUsage.toFixed(0),
                 `$${avgMonthlyCost.toFixed(0)}`,
-                ...monthUsageMap
+                ...monthUsageMap,
+                escapeCsvCell(record.notes ?? ''),
             ];
 
             csvRows.push(row.join(','));
@@ -634,29 +695,69 @@ const App: React.FC = () => {
                 />
             )}
 
+            {showLeadsList && userRole === 'premium' && (
+                <LeadsList
+                    records={savedRecords}
+                    userRole={userRole}
+                    onClose={() => setShowLeadsList(false)}
+                    onUpdateNotes={handleUpdateLeadNotes}
+                />
+            )}
+
             {/* Professional View Records Modal */}
             {showRecordsModal && (
                 <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowRecordsModal(false)} />
                     <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
-                        <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-                            <h2 className="text-xl font-bold text-slate-900">Saved Records (Professional View)</h2>
-                            <button onClick={() => setShowRecordsModal(false)} className="text-slate-400 hover:text-slate-600">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
+                        <div className="p-4 border-b border-slate-200 bg-slate-50 space-y-3">
+                            <div className="flex justify-between items-center gap-2">
+                                <h2 className="text-xl font-bold text-slate-900">Saved Records (Professional View)</h2>
+                                <button type="button" onClick={() => setShowRecordsModal(false)} className="text-slate-400 hover:text-slate-600 shrink-0">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                            </div>
+                            {userRole === 'pro' && (
+                                <label className="block">
+                                    <span className="sr-only">Search records</span>
+                                    <input
+                                        type="search"
+                                        autoComplete="off"
+                                        placeholder="Search records…"
+                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#00a8f9] focus:border-transparent bg-white"
+                                        onFocus={handleProRecordSearchFocus}
+                                    />
+                                </label>
+                            )}
                         </div>
-                        <div className="p-4 overflow-auto bg-slate-100 font-mono text-xs whitespace-pre">
-                            {/* Render a simple preview of the CSV text */}
-                            {generateTransposedCSV()}
+                        <div className="relative flex-1 min-h-0 flex flex-col">
+                            {userRole === 'pro' && proSearchUpsellBlocking && (
+                                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-white/95 px-6 py-8 text-center">
+                                    <p className="text-slate-800 font-semibold text-sm sm:text-base max-w-sm">
+                                        Advanced Search only available in Premium subscription
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={handleProSearchUpgradeClick}
+                                        className="px-8 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-sm font-black tracking-wide shadow-md"
+                                    >
+                                        UPGRADE
+                                    </button>
+                                </div>
+                            )}
+                            <div className="flex-1 overflow-auto p-4 bg-slate-100 font-mono text-xs whitespace-pre min-h-[200px]">
+                                {generateTransposedCSV()}
+                            </div>
                         </div>
                         <div className="p-4 border-t border-slate-200 bg-white flex justify-end gap-3">
                             <button
+                                type="button"
                                 onClick={handleCopyTransposed}
                                 className="px-4 py-2 bg-[#00a8f9] text-white font-bold rounded-lg hover:bg-[#0096e0]"
                             >
                                 Copy Transposed Data
                             </button>
                             <button
+                                type="button"
                                 onClick={() => setShowRecordsModal(false)}
                                 className="px-4 py-2 text-slate-600 font-bold hover:bg-slate-100 rounded-lg"
                             >
@@ -817,17 +918,30 @@ const App: React.FC = () => {
                                         Clear
                                     </button>
                                 </div>
-                                <div className="flex gap-3">
+                                <div className="flex flex-col sm:flex-row gap-3">
                                     {userRole === 'premium' ? (
-                                        <button
-                                            onClick={handleDownloadStandardCSV}
-                                            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-50 hover:bg-blue-100 text-[#00a8f9] border border-blue-100 rounded-lg transition-colors font-bold text-sm"
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                                                <path fillRule="evenodd" d="M4.5 2A1.5 1.5 0 003 3.5v13A1.5 1.5 0 004.5 18h11a1.5 1.5 0 001.5-1.5V7.621a1.5 1.5 0 00-.44-1.06l-4.12-4.122A1.5 1.5 0 0011.378 2H4.5zm2.25 8.5a.75.75 0 000 1.5h6.5a.75.75 0 000-1.5h-6.5zm0 3a.75.75 0 000 1.5h6.5a.75.75 0 000-1.5h-6.5z" clipRule="evenodd" />
-                                            </svg>
-                                            Download Spreadsheet
-                                        </button>
+                                        <>
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowLeadsList(true)}
+                                                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-slate-900 hover:bg-slate-800 text-white border border-slate-800 rounded-lg transition-colors font-bold text-sm order-first sm:order-none"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                                                    <path d="M10 3.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM2 10a8 8 0 1114.32 4.906l3.387 3.387a.75.75 0 11-1.06 1.06l-3.387-3.387A8 8 0 012 10z" />
+                                                </svg>
+                                                My Leads
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={handleDownloadStandardCSV}
+                                                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-50 hover:bg-blue-100 text-[#00a8f9] border border-blue-100 rounded-lg transition-colors font-bold text-sm"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                                                    <path fillRule="evenodd" d="M4.5 2A1.5 1.5 0 003 3.5v13A1.5 1.5 0 004.5 18h11a1.5 1.5 0 001.5-1.5V7.621a1.5 1.5 0 00-.44-1.06l-4.12-4.122A1.5 1.5 0 0011.378 2H4.5zm2.25 8.5a.75.75 0 000 1.5h6.5a.75.75 0 000-1.5h-6.5zm0 3a.75.75 0 000 1.5h6.5a.75.75 0 000-1.5h-6.5z" clipRule="evenodd" />
+                                                </svg>
+                                                Download Spreadsheet
+                                            </button>
+                                        </>
                                     ) : (
                                         <button
                                             onClick={() => setShowRecordsModal(true)}
