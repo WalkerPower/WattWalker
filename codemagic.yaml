@@ -1,60 +1,60 @@
+# WattWalker — iOS on Codemagic (cloud Mac; no local Mac required).
+#
+# One-time Codemagic setup:
+# 1. Add GitHub repo → branch `ios-codemagic` (or run all branches while testing).
+# 2. Integrations → App Store Connect API key (Issuer ID, Key ID, .p8 file).
+#    Reference that integration below (replace `app_store_connect` if you renamed it).
+# 3. Ensure distribution certificate + App Store provisioning profile for
+#    com.njsolar.wattwalker (Codemagic can generate/manage via the integration).
+# 4. Environment variables: add Vite/Firebase keys needed at build time (mirror .env),
+#    e.g. VITE_API_BASE_URL, GEMINI_API_KEY — never commit .env.
+# 5. Optional: Team settings → Email notifications for build success/failure.
+# 6. When ready for TestFlight: set submit_to_testflight: true (and add beta_groups if needed).
+#
+# Web production: deploy from `main`. Merge `ios-codemagic` → `main` when the pipeline is stable.
+#
 workflows:
-  wattwalker-ios:
-    name: WattWalker iOS
-    max_build_duration: 120
+  ios-app-store:
+    name: WattWalker iOS (Capacitor)
     instance_type: mac_mini_m2
+    max_build_duration: 120
+    integrations:
+      app_store_connect: app_store_connect
     environment:
-      groups:
-        - appstore_credentials
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.njsolar.wattwalker
+      node: 22.14.0
+      xcode: latest
       vars:
-        VITE_API_BASE_URL: $VITE_API_BASE_URL
-        GEMINI_API_KEY: $GEMINI_API_KEY
-        XCODE_PROJECT: App.xcodeproj
+        XCODE_PROJECT: ios/App/App.xcodeproj
         XCODE_SCHEME: App
-        APP_STORE_APP_ID: "6AR6G3NBJA"
-        node: v22
-        xcode: latest
     triggering:
       events:
         - push
       branch_patterns:
-        - pattern: main
+        - pattern: ios-codemagic
           include: true
           source: true
+      cancel_previous_builds: true
     scripts:
-      - name: Install dependencies
+      - name: Install npm dependencies
         script: npm ci
-      - name: Build web app
+      - name: Build web (Vite → dist)
         script: npm run build
-      - name: Sync to iOS
+      - name: Sync Capacitor iOS
         script: npx cap sync ios
-      - name: Set up keychain and code signing
-        script: |
-          keychain initialize
-          keychain add-certificates
-          xcode-project use-profiles
-      - name: Increment build number
-        script: |
-          cd $CM_BUILD_DIR/ios/App
-          # Use Codemagic's build number + offset to ensure uniqueness
-          NEW_BUILD=$((${BUILD_NUMBER:-1} + 100))
-          agvtool new-version -all $NEW_BUILD
-          echo "Set build number to $NEW_BUILD"
+      - name: Apply Xcode signing profiles
+        script: xcode-project use-profiles
       - name: Build IPA
         script: |
-          cd $CM_BUILD_DIR/ios/App
           xcode-project build-ipa \
-            --project "$XCODE_PROJECT" \
+            --project "$CM_BUILD_DIR/$XCODE_PROJECT" \
             --scheme "$XCODE_SCHEME"
     artifacts:
-      - ios/App/build/ios/ipa/*.ipa
+      - build/ios/ipa/*.ipa
     publishing:
       app_store_connect:
-        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
-        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
-        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
-        submit_to_testflight: true
+        auth: integration
+        submit_to_testflight: false
         submit_to_app_store: false
