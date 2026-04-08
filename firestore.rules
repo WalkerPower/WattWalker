@@ -1,0 +1,48 @@
+// WattWalker — merge into Firebase Console → Firestore Database → Rules (or use Firebase CLI).
+// Project: must match services/firebase.ts projectId.
+//
+// If you ALREADY have other match blocks (extra collections), keep them and add only
+// what is missing — do not publish a rules file that deletes your existing access.
+//
+// Stripe client flow: createCheckoutSession writes to customers/{uid}/checkout_sessions
+// Auth flow: setDoc on users/{uid} and customers/{uid} (see components/Auth.tsx).
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /customers/{uid} {
+      // Customer profile doc (signup / Google) + fields the Stripe extension may merge client-side
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+
+      match /checkout_sessions/{sessionId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+
+      // Written by Stripe extension (Admin SDK — bypasses rules). App listens with client.
+      match /subscriptions/{subId} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+      }
+
+      match /payments/{payId} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+
+    // Optional: catalog synced by Stripe extension for pricing / portal
+    match /products/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Tight default: deny anything not listed above (remove this block if you use more collections
+    // and need a different default, or add more match statements above).
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

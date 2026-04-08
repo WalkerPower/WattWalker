@@ -21,7 +21,10 @@ const PricingModal: React.FC<PricingModalProps> = ({ userId, onClose }) => {
       await createCheckoutSession(userId, priceId, () => setLoading(null));
     } catch (error) {
       console.error(error);
-      alert("Failed to start checkout process.");
+      const detail = error instanceof Error ? error.message : String(error);
+      alert(
+        `Failed to start checkout process.\n\n${detail}\n\nIf this persists, check the browser console or contact support.`
+      );
       setLoading(null);
     }
   };
