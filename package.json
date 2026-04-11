@@ -12,11 +12,14 @@
   },
   "dependencies": {
     "@capacitor/cli": "^8.2.0",
+    "@capacitor/core": "^8.2.0",
     "@capacitor/ios": "^8.2.0",
+    "@codetrix-studio/capacitor-google-auth": "^3.4.0-rc.4",
     "@google/genai": "^1.40.0",
     "firebase": "^12.9.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-is": "^19.2.5",
     "recharts": "^3.7.0"
   },
   "devDependencies": {
@@ -25,6 +28,7 @@
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
     "autoprefixer": "^10.4.27",
+    "dotenv": "^17.4.1",
     "postcss": "^8.5.8",
     "tailwindcss": "^3.4.19",
     "typescript": "~5.8.2",

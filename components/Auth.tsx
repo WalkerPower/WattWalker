@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Capacitor } from '@capacitor/core';
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -6,10 +7,18 @@ import {
   sendEmailVerification,
   sendPasswordResetEmail,
   signOut,
-  User
 } from 'firebase/auth';
 import { setDoc, doc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../services/firebase';
+import { persistGoogleUserDocs } from '../services/persistGoogleProfile';
+import {
+  isNativeGoogleSignInConfigured,
+  signInWithGoogleNative,
+} from '../services/nativeGoogleSignIn';
+
+function normalizeEmail(raw: string): string {
+  return raw.trim().toLowerCase();
+}
 
 const Auth: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -24,26 +33,54 @@ const Auth: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  /** Avoid hanging forever on WKWebView / slow networks; `finally` only runs after all awaits complete. */
+  const withNetworkTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T> => {
+    return new Promise((resolve, reject) => {
+      const t = window.setTimeout(() => {
+        reject(new Error('SIGN_IN_TIMEOUT'));
+      }, ms);
+      promise.then(
+        (v) => {
+          clearTimeout(t);
+          resolve(v);
+        },
+        (e) => {
+          clearTimeout(t);
+          reject(e);
+        }
+      );
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
+    const emailNorm = normalizeEmail(email);
+
     try {
       if (isLogin) {
         // --- LOGIN FLOW ---
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const userCredential = await withNetworkTimeout(
+          signInWithEmailAndPassword(auth, emailNorm, password),
+          45_000
+        );
         const user = userCredential.user;
 
         if (!user.emailVerified) {
-          await signOut(auth); // Prevent access
-          setError("Please verify your email address to login.");
+          setError('Please verify your email address to login.');
+          setLoading(false);
+          // Do not await: signOut can hang on some iOS WebViews and would leave the button stuck on "Processing..."
+          void signOut(auth).catch(() => {});
+          return;
         }
         // If verified, App.tsx handles the state update via onAuthStateChanged
       } else {
         // --- SIGNUP FLOW ---
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const userCredential = await createUserWithEmailAndPassword(auth, emailNorm, password);
         const user = userCredential.user;
 
         // Initialize User Document in Firestore for Trial Tracking
@@ -81,7 +118,11 @@ const Auth: React.FC = () => {
       console.error("Auth Error:", err.code, err.message);
 
       if (isLogin) {
-        if (
+        if (err?.message === 'SIGN_IN_TIMEOUT') {
+          setError(
+            'Sign-in is taking too long. Check your connection, try cellular instead of Wi‑Fi (or vice versa), then try again.'
+          );
+        } else if (
           err.code === 'auth/invalid-credential' ||
           err.code === 'auth/user-not-found' ||
           err.code === 'auth/wrong-password' ||
@@ -107,7 +148,8 @@ const Auth: React.FC = () => {
 
   const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) {
+    const emailNorm = normalizeEmail(email);
+    if (!emailNorm) {
       setError("Please enter your email address.");
       return;
     }
@@ -115,7 +157,13 @@ const Auth: React.FC = () => {
     setLoading(true);
 
     try {
-      await sendPasswordResetEmail(auth, email);
+      // Optional: set VITE_PASSWORD_RESET_CONTINUE_URL=https://your-production-site.com in .env (must be in Firebase Authorized domains)
+      const continueUrl = import.meta.env.VITE_PASSWORD_RESET_CONTINUE_URL as string | undefined;
+      await sendPasswordResetEmail(
+        auth,
+        emailNorm,
+        continueUrl ? { url: continueUrl } : undefined
+      );
       setResetEmailSent(true);
     } catch (err: any) {
       console.error("Password Reset Error:", err.code, err.message);
@@ -132,23 +180,28 @@ const Auth: React.FC = () => {
 
   const handleGoogleSignIn = async () => {
     setError(null);
+    setGoogleLoading(true);
     try {
+      if (Capacitor.isNativePlatform()) {
+        if (!isNativeGoogleSignInConfigured()) {
+          setError(
+            'Google sign-in isn’t available in this app version yet. Use email and password, or sign in from the WattWalker website in Safari.'
+          );
+          return;
+        }
+        await signInWithGoogleNative();
+        return;
+      }
       const result = await signInWithPopup(auth, googleProvider);
-      // Create/update user document with trial info
-      await setDoc(doc(db, 'users', result.user.uid), {
-        email: result.user.email,
-        createdAt: Date.now(),
-      }, { merge: true });
-      
-      // Create customer document for Stripe extension
-      await setDoc(doc(db, 'customers', result.user.uid), {
-        email: result.user.email
-      }, { merge: true });
-
+      await persistGoogleUserDocs(result.user);
     } catch (err: any) {
       console.error("Google Auth Error:", err.code, err.message);
 
-      if (err.code === 'auth/unauthorized-domain') {
+      if (err?.message === 'GOOGLE_NO_ID_TOKEN') {
+        setError(
+          'Google sign-in could not finish in the app. Use email and password, or try the website; the developer may need to refresh the iOS Google setup (Web client ID + URL scheme) and ship a new build.'
+        );
+      } else if (err.code === 'auth/unauthorized-domain') {
         const hostname = window.location.hostname;
         setError(`Domain "${hostname}" is not authorized. Add it to Firebase Console > Authentication > Settings > Authorized Domains.`);
       } else if (err.code === 'auth/popup-closed-by-user') {
@@ -156,8 +209,10 @@ const Auth: React.FC = () => {
       } else if (err.code === 'auth/cancelled-popup-request') {
         return;
       } else {
-        setError("Google Sign In failed. Please try again.");
+        setError(err?.message || 'Google Sign In failed. Please try again.');
       }
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -237,6 +292,10 @@ const Auth: React.FC = () => {
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Email</label>
                 <input
                   type="email"
+                  autoComplete="email"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00a8f9] focus:border-transparent text-slate-900"
@@ -335,6 +394,10 @@ const Auth: React.FC = () => {
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Email</label>
             <input
               type="email"
+              autoComplete="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00a8f9] focus:border-transparent text-slate-900"
@@ -360,6 +423,7 @@ const Auth: React.FC = () => {
             </div>
             <input
               type="password"
+              autoComplete={isLogin ? 'current-password' : 'new-password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00a8f9] focus:border-transparent text-slate-900"
@@ -389,7 +453,8 @@ const Auth: React.FC = () => {
         <button
           onClick={handleGoogleSignIn}
           type="button"
-          className="w-full py-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+          disabled={loading || googleLoading}
+          className="w-full py-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path
@@ -409,7 +474,7 @@ const Auth: React.FC = () => {
               fill="#EA4335"
             />
           </svg>
-          {isLogin ? 'Sign in with Google' : 'Sign up with Google'}
+          {googleLoading ? 'Opening Google…' : isLogin ? 'Sign in with Google' : 'Sign up with Google'}
         </button>
 
         <div className="mt-6 text-center text-sm text-slate-500">
