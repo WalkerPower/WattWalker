@@ -28,6 +28,9 @@ workflows:
         - pattern: main
           include: true
           source: true
+        - pattern: apple
+          include: true
+          source: true
     scripts:
       - name: Install dependencies
         script: npm ci
