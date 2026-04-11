@@ -53,19 +53,6 @@
 	<string>WattWalker needs access to your photo library to select images of energy bill graphs for analysis and data extraction.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
-	<!-- Google Sign-In (native): set CFBundleURLSchemes to REVERSED_CLIENT_ID from GoogleService-Info.plist (Firebase → Project settings → Your apps → iOS app → Download plist). -->
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
-			<key>CFBundleURLName</key>
-			<string>Google</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>com.googleusercontent.apps.REPLACE_WITH_REVERSED_CLIENT_ID</string>
-			</array>
-		</dict>
-	</array>
+	<!-- Google Sign-In URL scheme is injected by scripts/inject-ios-google-url-scheme.py from VITE_GOOGLE_IOS_CLIENT_ID (run after cap sync; Codemagic does this automatically). -->
 </dict>
 </plist>

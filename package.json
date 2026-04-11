@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "npm run sync-icon && vite build",
     "preview": "vite preview",
-    "cap:sync": "cap sync ios",
+    "cap:sync": "cap sync ios && node scripts/inject-ios-google-url-scheme-run.cjs",
+    "inject-ios-google-url-scheme": "node scripts/inject-ios-google-url-scheme-run.cjs",
     "sync-icon": "node scripts/sync-app-icon.cjs"
   },
   "dependencies": {

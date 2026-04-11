@@ -38,6 +38,10 @@ workflows:
         script: npm run build
       - name: Sync to iOS
         script: npx cap sync ios
+      - name: Inject Google iOS URL scheme (reversed client ID)
+        script: |
+          cd "$CM_BUILD_DIR"
+          python3 scripts/inject-ios-google-url-scheme.py
       - name: Set up keychain and code signing
         script: |
           keychain initialize
