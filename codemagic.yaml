@@ -9,13 +9,11 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.njsolar.wattwalker
+      # Secrets (VITE_*, GEMINI_*, GOOGLE_*) must live in group `appstore_credentials` with those exact names.
+      # Do not set vars to "$VITE_..." here — unresolved references become the literal string and break the build.
       vars:
         VITE_API_BASE_URL: $VITE_API_BASE_URL
         GEMINI_API_KEY: $GEMINI_API_KEY
-        # Native Google Sign-In (Capacitor): set in Codemagic → Environment variables (e.g. appstore_credentials group)
-        GOOGLE_WEB_CLIENT_ID: $GOOGLE_WEB_CLIENT_ID
-        VITE_GOOGLE_WEB_CLIENT_ID: $VITE_GOOGLE_WEB_CLIENT_ID
-        VITE_GOOGLE_IOS_CLIENT_ID: $VITE_GOOGLE_IOS_CLIENT_ID
         XCODE_PROJECT: App.xcodeproj
         XCODE_SCHEME: App
         APP_STORE_APP_ID: "6AR6G3NBJA"

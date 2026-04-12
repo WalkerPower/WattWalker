@@ -66,6 +66,16 @@ def main() -> int:
     with INFO_PLIST.open("rb") as f:
         pl = plistlib.load(f)
 
+    if raw.startswith("$") or raw == "${VITE_GOOGLE_IOS_CLIENT_ID}":
+        print(
+            "VITE_GOOGLE_IOS_CLIENT_ID is not resolved (value looks like a placeholder, e.g. '$VITE_GOOGLE_IOS_CLIENT_ID').\n"
+            "In Codemagic → App → Environment variables → group appstore_credentials:\n"
+            "  Add variable VITE_GOOGLE_IOS_CLIENT_ID with the real iOS OAuth client ID from Google Cloud / Firebase\n"
+            "  (format: 123456789-xxxxx.apps.googleusercontent.com). Do not paste the dollar-sign reference as the value.",
+            file=sys.stderr,
+        )
+        return 1
+
     if not raw:
         print(
             "VITE_GOOGLE_IOS_CLIENT_ID not set; stripping invalid Google URL schemes if any.",
