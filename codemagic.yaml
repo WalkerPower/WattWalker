@@ -33,7 +33,13 @@ workflows:
       - name: Install dependencies
         script: npm ci
       - name: Build web app
-        script: npm run build
+        script: |
+          if [ -z "$VITE_GOOGLE_WEB_CLIENT_ID" ] || [ -z "$VITE_GOOGLE_IOS_CLIENT_ID" ]; then
+            echo "ERROR: Set VITE_GOOGLE_WEB_CLIENT_ID and VITE_GOOGLE_IOS_CLIENT_ID in appstore_credentials."
+            echo "Vite only embeds these at build time; without them, native Google sign-in stays disabled in the IPA."
+            exit 1
+          fi
+          npm run build
       - name: Sync to iOS
         script: npx cap sync ios
       - name: Inject Google iOS URL scheme (reversed client ID)
