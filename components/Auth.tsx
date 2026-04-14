@@ -7,6 +7,7 @@ import {
   sendEmailVerification,
   sendPasswordResetEmail,
   signOut,
+  browserPopupRedirectResolver,
 } from 'firebase/auth';
 import { setDoc, doc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../services/firebase';
@@ -192,7 +193,7 @@ const Auth: React.FC = () => {
         await signInWithGoogleNative();
         return;
       }
-      const result = await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
       await persistGoogleUserDocs(result.user);
     } catch (err: any) {
       console.error("Google Auth Error:", err.code, err.message);
