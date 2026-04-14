@@ -4,6 +4,7 @@ import {
   getAuth,
   GoogleAuthProvider,
   initializeAuth,
+  browserPopupRedirectResolver,
 } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
@@ -25,7 +26,10 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
  */
 function initAuth() {
   try {
-    return initializeAuth(app, { persistence: browserLocalPersistence });
+    return initializeAuth(app, { 
+      persistence: browserLocalPersistence,
+      popupRedirectResolver: browserPopupRedirectResolver
+    });
   } catch (e: unknown) {
     const code =
       typeof e === "object" && e !== null && "code" in e
