@@ -13,6 +13,7 @@ import { subscribeToStripeSubscription } from './services/subscriptionFirestore'
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { AnalysisResponse, AnalysisStatus, CalculatedEnergyData, CalculationSummary, SavedRecord, UtilityProvider, UserRole } from './types';
 import { calendarMonthIndexForCsv } from './utils/billMonth';
+import { formatPricePerKwhForPresentation, parsePricePerKwhInput } from './utils/pricePerKwh';
 
 const STORAGE_KEY = 'wattwalker_saved_records';
 
@@ -67,7 +68,13 @@ const App: React.FC = () => {
     const [summary, setSummary] = useState<CalculationSummary | null>(null);
 
     // State for Manual User Inputs
-    const [contactInfo, setContactInfo] = useState({ address: '', email: '', phone: '', notes: '' });
+    const [contactInfo, setContactInfo] = useState({
+        address: '',
+        email: '',
+        phone: '',
+        notes: '',
+        pricePerKwh: '',
+    });
 
     const [error, setError] = useState<string | null>(null);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -254,7 +261,7 @@ const App: React.FC = () => {
         setResult(null);
         setCalculatedData(null);
         setSummary(null);
-        setContactInfo({ address: '', email: '', phone: '', notes: '' });
+        setContactInfo({ address: '', email: '', phone: '', notes: '', pricePerKwh: '' });
         setError(null);
         setShowDownloadSection(false);
         setImageFromCamera(fromCamera);
@@ -297,14 +304,15 @@ const App: React.FC = () => {
             const analysisResult = await analyzeGraphImage(fileToProcess, provider, useProModel);
             setResult(analysisResult);
 
-            // Pre-fill address if detected (common for JCP&L bills)
-            if (analysisResult.fullAddress) {
-                setContactInfo(prev => ({ ...prev, address: analysisResult.fullAddress! }));
-            }
-
             const billCost = analysisResult.billCost ?? 0;
             const billUsage = analysisResult.billUsage ?? 0;
             const pricePerKwh = (billCost > 0 && billUsage > 0) ? billCost / billUsage : 0;
+
+            setContactInfo((prev) => ({
+                ...prev,
+                ...(analysisResult.fullAddress ? { address: analysisResult.fullAddress } : {}),
+                pricePerKwh: pricePerKwh > 0 ? pricePerKwh.toFixed(3) : '',
+            }));
 
             // --- Post-Processing Logic ---
             const processedData: CalculatedEnergyData[] = analysisResult.data.map(item => {
@@ -431,7 +439,7 @@ const App: React.FC = () => {
         setResult(null);
         setCalculatedData(null);
         setSummary(null);
-        setContactInfo({ address: '', email: '', phone: '', notes: '' });
+        setContactInfo({ address: '', email: '', phone: '', notes: '', pricePerKwh: '' });
         setError(null);
         setSelectedImage(null);
         setProcessingMessage('');
@@ -441,7 +449,17 @@ const App: React.FC = () => {
     };
 
     const handleContactInfoChange = (field: string, value: string) => {
-        setContactInfo(prev => ({ ...prev, [field]: value }));
+        setContactInfo((prev) => ({ ...prev, [field]: value }));
+        if (field === 'pricePerKwh' && result) {
+            const rate = parsePricePerKwhInput(value, result.billCost ?? 0, result.billUsage ?? 0);
+            setCalculatedData((prevData) => {
+                if (!prevData) return null;
+                return prevData.map((row) => ({
+                    ...row,
+                    estimatedCost: rate > 0 ? row.monthlyTotal * rate : 0,
+                }));
+            });
+        }
     };
 
     const handleUpdateLeadNotes = (recordId: string, notes: string) => {
@@ -476,7 +494,11 @@ const App: React.FC = () => {
     const handleSaveToStorage = () => {
         if (!result || !calculatedData || !summary) return;
 
-        const pricePerKwh = (result.billCost && result.billUsage) ? result.billCost / result.billUsage : 0;
+        const pricePerKwh = parsePricePerKwhInput(
+            contactInfo.pricePerKwh,
+            result.billCost || 0,
+            result.billUsage || 0
+        );
 
         const notesTrimmed = (contactInfo.notes ?? '').slice(0, 150);
 
@@ -543,7 +565,7 @@ const App: React.FC = () => {
             rows[3].push(record.fullAddress || '');
             rows[4].push(`$${record.billCost.toFixed(2)}`);
             rows[5].push(record.billUsage.toString());
-            rows[6].push(`$${record.pricePerKwh.toFixed(3)}`);
+            rows[6].push(formatPricePerKwhForPresentation(record.pricePerKwh));
             rows[7].push(annualUsage.toFixed(0));
             rows[8].push(`$${annualCost.toFixed(0)}`);
             rows[9].push(avgMonthlyUsage.toFixed(0));
@@ -610,7 +632,7 @@ const App: React.FC = () => {
                 `"${record.phoneNumber || ''}"`,
                 `$${record.billCost.toFixed(2)}`,
                 record.billUsage,
-                `$${record.pricePerKwh.toFixed(3)}`,
+                formatPricePerKwhForPresentation(record.pricePerKwh),
                 annualUsage.toFixed(0),
                 `$${annualCost.toFixed(0)}`,
                 avgMonthlyUsage.toFixed(0),

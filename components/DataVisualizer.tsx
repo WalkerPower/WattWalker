@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { CalculatedEnergyData, CalculationSummary, GraphMetadata, UtilityProvider, UserRole } from '../types';
 import { billMonthSortKey, formatBillMonthDisplay } from '../utils/billMonth';
+import { formatPricePerKwhForPresentation, parsePricePerKwhInput } from '../utils/pricePerKwh';
 import { extractServiceAddressFromBillPage } from '../services/geminiService';
 import { isHeic, convertHeicToJpg } from '../services/imageService';
 import {
@@ -23,7 +24,7 @@ interface DataVisualizerProps {
   billCost?: number;
   billUsage?: number;
   onSaveRecord: () => void;
-  contactInfo: { address: string; email: string; phone: string; notes?: string };
+  contactInfo: { address: string; email: string; phone: string; notes?: string; pricePerKwh: string };
   onContactInfoChange: (field: string, value: string) => void;
   provider: UtilityProvider;
   userRole: UserRole;
@@ -255,15 +256,13 @@ const DataVisualizer: React.FC<DataVisualizerProps> = ({
     ? metadata.yAxisLabels
     : undefined;
 
-  // Calculate Price Per kWh
-  const pricePerKwh = useMemo(() => {
-    if (billCost !== undefined && billUsage !== undefined && billUsage > 0) {
-      return billCost / billUsage;
-    }
-    return 0;
-  }, [billCost, billUsage]);
+  const displayRatePerKwh = useMemo(
+    () =>
+      parsePricePerKwhInput(contactInfo.pricePerKwh, billCost ?? 0, billUsage ?? 0),
+    [contactInfo.pricePerKwh, billCost, billUsage]
+  );
 
-  // Process data for the Table View
+  // Process data for the Table View (estimatedCost comes from parent, driven by $/kWh field)
   const tableData = useMemo(() => {
     const last12 = [...data].slice(-12);
     const tagged = last12.map((row, i) => ({ row, i }));
@@ -273,11 +272,8 @@ const DataVisualizer: React.FC<DataVisualizerProps> = ({
       if (ka !== kb) return ka - kb;
       return a.i - b.i;
     });
-    return tagged.map(({ row }) => ({
-      ...row,
-      estimatedCost: row.monthlyTotal * pricePerKwh
-    }));
-  }, [data, pricePerKwh]);
+    return tagged.map(({ row }) => ({ ...row }));
+  }, [data]);
 
   // Calculate Financial Summaries for the Table Footer
   const financialSummary = useMemo(() => {
@@ -309,13 +305,69 @@ const DataVisualizer: React.FC<DataVisualizerProps> = ({
       <div className="p-5 sm:p-6 space-y-6 bg-slate-50 border-b border-slate-200">
 
         {/* Row 1: Header + Subscription Info */}
-        <div className="flex flex-row justify-between items-start">
-          {/* Customer Name */}
-          <div>
-            <div className="text-slate-500 text-xs uppercase tracking-wider font-bold mb-1">Extracted Bill Details</div>
-            <div className="text-slate-400 text-sm font-medium">Customer Name</div>
-            <div className="text-slate-900 text-2xl sm:text-3xl font-bold mt-1 uppercase tracking-tight">
-              {(customerName ?? '').trim() || 'Name Not Available'}
+        <div className="flex flex-row justify-between items-start gap-4 flex-wrap">
+          <div className="flex flex-col sm:flex-row sm:items-end gap-5 sm:gap-8 flex-1 min-w-0">
+            {/* Customer Name */}
+            <div className="min-w-0 flex-1">
+              <div className="text-slate-500 text-xs uppercase tracking-wider font-bold mb-1">Extracted Bill Details</div>
+              <div className="text-slate-400 text-sm font-medium">Customer Name</div>
+              <div className="text-slate-900 text-2xl sm:text-3xl font-bold mt-1 uppercase tracking-tight">
+                {(customerName ?? '').trim() || 'Name Not Available'}
+              </div>
+            </div>
+
+            <div className="flex-shrink-0 w-full sm:w-auto sm:min-w-[9.5rem]">
+              <label
+                htmlFor="ww-price-per-kwh"
+                className="text-slate-400 text-sm font-medium block"
+              >
+                $/kWh
+              </label>
+              <div className="relative mt-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-lg font-semibold pointer-events-none" aria-hidden>
+                  $
+                </span>
+                <input
+                  id="ww-price-per-kwh"
+                  type="text"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  placeholder="0.000"
+                  className="w-full sm:w-36 bg-white border border-slate-300 rounded-md pl-7 pr-3 py-2 text-lg font-mono font-bold text-slate-900 focus:outline-none focus:border-[#00a8f9] focus:ring-1 focus:ring-[#00a8f9] transition-colors"
+                  value={contactInfo.pricePerKwh}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/\$/g, '').replace(/,/g, '');
+                    onContactInfoChange('pricePerKwh', v);
+                  }}
+                  onBlur={() => {
+                    const raw = contactInfo.pricePerKwh.trim().replace(/\$/g, '').replace(/,/g, '');
+                    if (raw === '') {
+                      const fb =
+                        billCost !== undefined &&
+                        billUsage !== undefined &&
+                        billUsage > 0 &&
+                        billCost > 0
+                          ? (billCost / billUsage).toFixed(3)
+                          : '';
+                      onContactInfoChange('pricePerKwh', fb);
+                      return;
+                    }
+                    const n = parseFloat(raw);
+                    if (Number.isFinite(n) && n >= 0) {
+                      onContactInfoChange(
+                        'pricePerKwh',
+                        formatPricePerKwhForPresentation(n).replace(/^\$/, '')
+                      );
+                    }
+                  }}
+                />
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1 font-medium tabular-nums">
+                Slides / merge value:{' '}
+                <span className="text-slate-600 font-semibold">
+                  {formatPricePerKwhForPresentation(displayRatePerKwh)}
+                </span>
+              </p>
             </div>
           </div>
 
@@ -529,8 +581,10 @@ const DataVisualizer: React.FC<DataVisualizerProps> = ({
               </div>
               <div className="p-3">
                 <div className="text-slate-500 text-[10px] uppercase tracking-wider font-bold">Rate</div>
-                <div className="text-slate-900 font-bold text-sm sm:text-base mt-1 truncate">
-                  {pricePerKwh > 0 ? `$${pricePerKwh.toFixed(3)}` : "-"}
+                <div className="text-slate-900 font-bold text-sm sm:text-base mt-1 truncate tabular-nums">
+                  {displayRatePerKwh > 0
+                    ? formatPricePerKwhForPresentation(displayRatePerKwh)
+                    : '-'}
                 </div>
               </div>
             </div>

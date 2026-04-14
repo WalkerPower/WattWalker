@@ -13,8 +13,8 @@ RUN npm install --legacy-peer-deps
 COPY . .
 
 # Accept API key as build argument and set as environment variable for Vite
-ARG GEMINI_API_KEY
-ENV GEMINI_API_KEY=$GEMINI_API_KEY
+ARG VITE_GEMINI_API_KEY
+ENV VITE_GEMINI_API_KEY=$VITE_GEMINI_API_KEY
 
 # Build the application (Vite will inject the API key)
 RUN npm run build
