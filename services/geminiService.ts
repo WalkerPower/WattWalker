@@ -1,19 +1,6 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { Type } from "@google/genai";
 import { AnalysisResponse, UtilityProvider } from "../types";
-
-// Lazy initialization - only create client when needed
-let ai: GoogleGenAI | null = null;
-
-const getAI = () => {
-  if (!ai) {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
-    if (!apiKey) {
-      throw new Error("Gemini API key is not configured. Please contact support.");
-    }
-    ai = new GoogleGenAI({ apiKey });
-  }
-  return ai;
-};
+import { geminiGenerateContent } from "./geminiGenerate";
 
 /**
  * Converts a File object to a Base64 string.
@@ -118,7 +105,7 @@ export const analyzeGraphImage = async (file: File, provider: UtilityProvider, u
           ? 'Month label for the bar (as on the graph axis).'
           : 'Month label for the bar (as on the graph axis).';
 
-    const response = await getAI().models.generateContent({
+    const response = await geminiGenerateContent({
       model: modelName,
       contents: {
         parts: [
@@ -228,7 +215,7 @@ export const extractServiceAddressFromBillPage = async (
 
   const modelName = useProModel ? 'gemini-3.1-pro-preview' : 'gemini-3.1-flash-lite-preview';
 
-  const response = await getAI().models.generateContent({
+  const response = await geminiGenerateContent({
     model: modelName,
     contents: {
       parts: [imagePart, { text: prompt }],

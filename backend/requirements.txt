@@ -3,3 +3,5 @@ uvicorn
 pillow
 pillow-heif
 python-multipart
+google-genai
+python-dotenv

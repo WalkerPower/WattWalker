@@ -45,6 +45,19 @@ function isCompedPremiumEmail(email: string | null | undefined): boolean {
     return COMPED_PREMIUM_EMAILS.has(email.trim().toLowerCase());
 }
 
+function formatAnalysisError(err: unknown): string {
+    if (err instanceof Error) {
+        try {
+            const parsed = JSON.parse(err.message) as { error?: { message?: string } };
+            if (parsed?.error?.message) return parsed.error.message;
+        } catch {
+            /* plain text message */
+        }
+        return err.message;
+    }
+    return 'Failed to analyze image';
+}
+
 const App: React.FC = () => {
     // Auth State
     const [user, setUser] = useState<User | null>(null);
@@ -427,9 +440,9 @@ const App: React.FC = () => {
             });
 
             setStatus(AnalysisStatus.SUCCESS);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error(err);
-            setError(err.message || "Failed to analyze image");
+            setError(formatAnalysisError(err));
             setStatus(AnalysisStatus.ERROR);
         }
     };

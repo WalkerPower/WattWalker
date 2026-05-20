@@ -15,6 +15,11 @@ View your app in AI Studio: https://ai.studio/apps/8a45debe-e37a-4c14-bc6c-f606a
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
+2. Copy [.env.example](.env.example) to `.env` and set `GEMINI_API_KEY` from [Google AI Studio](https://aistudio.google.com/apikey).
+3. Install backend deps and run the API (bill analysis uses the server key, not the browser):
+   `pip install -r backend/requirements.txt`
+   `npm run dev:api`
+4. In another terminal, run the UI:
    `npm run dev`
+
+   Vite proxies `/api` and `/convert` to port 8080. For production, set `GEMINI_API_KEY` on the Cloud Run service (see `cloudbuild.yaml`).

@@ -6,8 +6,6 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
-      - '--build-arg'
-      - 'VITE_GEMINI_API_KEY=${_GEMINI_API_KEY}'
       - '-t'
       - 'us-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/wattwalker'
       - '.'
@@ -30,6 +28,8 @@ steps:
       - '--region'
       - 'us-west1'
       - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'GEMINI_API_KEY=${_GEMINI_API_KEY}'
 
 # Substitution variables - set these in Cloud Build Trigger settings
 substitutions:

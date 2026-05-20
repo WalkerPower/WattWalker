@@ -1,6 +1,5 @@
-// Configuration for the conversion endpoint
-// Uses VITE_API_BASE_URL in production (Cloud Run), falls back to localhost for development
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+import { API_BASE } from './apiBase';
+
 const CONVERT_ENDPOINT = `${API_BASE}/convert`;
 
 /**
