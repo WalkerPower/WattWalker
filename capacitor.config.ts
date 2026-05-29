@@ -20,7 +20,7 @@ const config: CapacitorConfig = {
     iosScheme: 'ionic'
   },
   // @codetrix-studio/capacitor-google-auth — serverClientId must be the OAuth 2.0 *Web* client ID
-  // (Firebase Console → Project settings → Your apps → Web app, or Google Cloud → Credentials → Web client).
+  // (Firebase Console -> Project settings -> Your apps -> Web app).
   plugins: {
     GoogleAuth: {
       scopes: ['profile', 'email'],

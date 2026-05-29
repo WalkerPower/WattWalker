@@ -1,5 +1,5 @@
-// Your ACTUAL deployed WattWalker URL
-export const DEPLOYED_URL = "https://wattwalker.njsolar.today";
+import { DEPLOYED_URL } from './siteConfig';
+export { DEPLOYED_URL };
 
 // Legacy constants for backward compatibility (Mapped to Premium)
 export const MONTHLY_PRICE_ID = "price_1T1DVBRTMNcgA09IcxnKX4d7";

@@ -25,7 +25,14 @@ function escapeCsvCell(val: string): string {
     return s;
 }
 
-/** App owners: same inbox for @njsolar.today and @walkerpower.energy; match is case-insensitive */
+/** App owners: VIP domains; match is case-insensitive */
+const VIP_DOMAINS = new Set([
+    'walkerpowersolar.com',
+    'walkerpower.energy',
+    'njsolar.today',
+]);
+const VIP_LOCAL_PARTS = new Set(['paulwalker', 'jasmine']);
+
 function isVipEmail(email: string | null | undefined): boolean {
     if (!email) return false;
     const e = email.trim().toLowerCase();
@@ -33,8 +40,8 @@ function isVipEmail(email: string | null | undefined): boolean {
     if (at < 1) return false;
     const local = e.slice(0, at);
     const domain = e.slice(at + 1);
-    if (domain !== 'walkerpower.energy' && domain !== 'njsolar.today') return false;
-    return local === 'paulwalker' || local === 'jasmine';
+    if (!VIP_DOMAINS.has(domain)) return false;
+    return VIP_LOCAL_PARTS.has(local);
 }
 
 /** Manual Premium (Zelle / comp): same app treatment as VIP; remove when they pay via Stripe or term ends */

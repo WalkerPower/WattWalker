@@ -22,4 +22,10 @@ View your app in AI Studio: https://ai.studio/apps/8a45debe-e37a-4c14-bc6c-f606a
 4. In another terminal, run the UI:
    `npm run dev`
 
-   Vite proxies `/api` and `/convert` to port 8080. For production, set `GEMINI_API_KEY` on the Cloud Run service (see `cloudbuild.yaml`).
+   Vite proxies `/api` and `/convert` to port 8080. For production on any backend host, set `GEMINI_API_KEY` as a server environment variable.
+
+## Deploy web (Walker Power Solar / `newwattwalker`)
+
+Repo: **https://github.com/WalkerPower/WattWalker**
+
+See **[DEPLOY-WEB.md](DEPLOY-WEB.md)**. Fast path: deploy Cloud Run + `npm run deploy:hosting`, then open **https://newwattwalker.web.app** (custom domain optional).

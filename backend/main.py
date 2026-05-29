@@ -11,7 +11,7 @@ import os
 
 from dotenv import load_dotenv
 
-# Load repo-root .env for local `uvicorn` (Cloud Run uses injected env vars).
+# Load repo-root .env for local `uvicorn` (production should use injected env vars).
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 load_dotenv(os.path.join(_REPO_ROOT, ".env"))
 load_dotenv(os.path.join(_REPO_ROOT, ".env.local"), override=True)

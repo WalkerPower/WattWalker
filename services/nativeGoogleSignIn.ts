@@ -5,7 +5,7 @@ import { persistGoogleUserDocs } from './persistGoogleProfile';
 
 /**
  * OAuth Web client ID (same value embedded in capacitor.config via GOOGLE_WEB_CLIENT_ID at cap sync).
- * iOS client ID: Google Cloud → Credentials → iOS client for bundle com.njsolar.wattwalker
+ * iOS client ID: Firebase Console -> Authentication/provider OAuth setup for bundle com.njsolar.wattwalker
  */
 export function readGoogleOAuthEnv() {
   const webClientId = (import.meta.env.VITE_GOOGLE_WEB_CLIENT_ID as string | undefined)?.trim();

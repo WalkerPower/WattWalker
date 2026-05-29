@@ -38,7 +38,7 @@ COPY backend/ .
 # We allow "backend/static" to be the destination in the container
 COPY --from=build /app/dist ./static
 
-# Expose port (Cloud Run uses 8080 by default)
+# Expose backend port
 ENV PORT=8080
 EXPOSE 8080
 

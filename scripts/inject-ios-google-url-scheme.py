@@ -70,7 +70,7 @@ def main() -> int:
         print(
             "VITE_GOOGLE_IOS_CLIENT_ID is not resolved (value looks like a placeholder, e.g. '$VITE_GOOGLE_IOS_CLIENT_ID').\n"
             "In Codemagic → App → Environment variables → group appstore_credentials:\n"
-            "  Add variable VITE_GOOGLE_IOS_CLIENT_ID with the real iOS OAuth client ID from Google Cloud / Firebase\n"
+            "  Add variable VITE_GOOGLE_IOS_CLIENT_ID with the real iOS OAuth client ID from Firebase\n"
             "  (format: 123456789-xxxxx.apps.googleusercontent.com). Do not paste the dollar-sign reference as the value.",
             file=sys.stderr,
         )

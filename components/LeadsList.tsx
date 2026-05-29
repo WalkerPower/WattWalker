@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { DEPLOYED_URL } from '../billingConfig';
 import { SavedRecord, UserRole } from '../types';
 
 interface LeadsListProps {
@@ -123,7 +124,7 @@ const LeadsList: React.FC<LeadsListProps> = ({ records, userRole, onClose, onUpd
     };
 
     const handleCopyCalendarLink = (record: SavedRecord) => {
-        const link = `https://wattwalker.njsolar.today/lead/${record.id}`;
+        const link = `${DEPLOYED_URL}/lead/${record.id}`;
         navigator.clipboard.writeText(link).then(() => {
             alert('Link copied! You can paste this into your calendar.');
         });

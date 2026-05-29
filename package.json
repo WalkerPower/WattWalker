@@ -1,6 +1,10 @@
 {
   "name": "wattwalker",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/WalkerPower/WattWalker.git"
+  },
   "version": "0.0.0",
   "type": "module",
   "scripts": {
@@ -10,7 +14,9 @@
     "preview": "vite preview",
     "cap:sync": "cap sync ios && node scripts/inject-ios-google-url-scheme-run.cjs",
     "inject-ios-google-url-scheme": "node scripts/inject-ios-google-url-scheme-run.cjs",
-    "sync-icon": "node scripts/sync-app-icon.cjs"
+    "sync-icon": "node scripts/sync-app-icon.cjs",
+    "build:hosting": "npm run build",
+    "deploy:hosting": "npm run build && firebase deploy --only hosting --project newwattwalker"
   },
   "dependencies": {
     "@capacitor/cli": "^8.2.0",

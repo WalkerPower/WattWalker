@@ -1,0 +1,59 @@
+# Deploy WattWalker web to Firebase (newwattwalker) + Cloud Run API.
+# Repo: https://github.com/WalkerPower/WattWalker
+#
+# Required GitHub repo secrets (Settings → Secrets → Actions):
+#   GCP_SA_KEY          — JSON key for a service account with Cloud Run Admin + SA User
+#   GEMINI_API_KEY      — Google AI Studio key for bill analysis
+#   FIREBASE_SERVICE_ACCOUNT — JSON for Firebase deploy (or use GCP_SA_KEY if roles include Firebase Admin)
+
+name: Deploy web
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  GCP_PROJECT: newwattwalker
+  GCP_REGION: us-central1
+  CLOUD_RUN_SERVICE: wattwalker
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy Cloud Run (API + static bundle in container)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          gcloud run deploy ${{ env.CLOUD_RUN_SERVICE }} \
+            --source . \
+            --project ${{ env.GCP_PROJECT }} \
+            --region ${{ env.GCP_REGION }} \
+            --allow-unauthenticated \
+            --set-env-vars "GEMINI_API_KEY=${GEMINI_API_KEY}"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+        env:
+          VITE_PUBLIC_APP_URL: https://newwattwalker.web.app
+
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: ${{ env.GCP_PROJECT }}
+          channelId: live
